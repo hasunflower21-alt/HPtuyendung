@@ -598,6 +598,7 @@ export default function App() {
               engineState.status === "running" || engineState.status === "cooling_down"
             }
             selectedGroupCount={selectedGroupCount}
+            onOpenScriptModal={() => setIsScriptModalOpen(true)}
           />
         )}
 

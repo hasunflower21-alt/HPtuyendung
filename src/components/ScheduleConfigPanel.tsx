@@ -10,6 +10,11 @@ import {
   ArrowRight,
   Info,
   Check,
+  Terminal,
+  Download,
+  ExternalLink,
+  Laptop,
+  Globe,
 } from "lucide-react";
 import { ScheduleConfig } from "../types";
 
@@ -19,6 +24,7 @@ interface ScheduleConfigPanelProps {
   onStartEngine: (mode: "test" | "full") => void;
   engineRunning: boolean;
   selectedGroupCount: number;
+  onOpenScriptModal?: () => void;
 }
 
 export const ScheduleConfigPanel: React.FC<ScheduleConfigPanelProps> = ({
@@ -27,6 +33,7 @@ export const ScheduleConfigPanel: React.FC<ScheduleConfigPanelProps> = ({
   onStartEngine,
   engineRunning,
   selectedGroupCount,
+  onOpenScriptModal,
 }) => {
   const [selectedPreset, setSelectedPreset] = useState<"safe" | "fast" | "custom">("safe");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -206,6 +213,77 @@ export const ScheduleConfigPanel: React.FC<ScheduleConfigPanelProps> = ({
           <span className="inline-block px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-bold">
             {showAdvanced ? "Đang Mở Cấu Hình" : "Bấm Để Mở Cài Đặt"}
           </span>
+        </div>
+      </div>
+
+      {/* Two Execution Methods: Web Auto-Tab vs Full Windows Automation */}
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-blue-600 text-white font-bold">
+              <Laptop className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                Phương Thức Đăng Bài Thực Tế Lên Facebook Của Bạn
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Chọn phương thức phù hợp với thiết bị của bạn để bài đăng xuất hiện thật 100% trên Facebook:
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Method 1: Web Auto-Flow */}
+          <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2 flex flex-col justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-blue-700 font-bold text-xs">
+                <Globe className="w-4 h-4 text-blue-600" />
+                <span>Cách 1: Chạy Trực Tiếp Trên Web / Điện Thoại</span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Khi bấm <strong>"Bắt Đầu Đăng"</strong>, hệ thống sẽ tự động xoay Spintax độc bản, tải ảnh đã tối ưu và mở từng nhóm Facebook để đăng bài theo đúng khoảng nghỉ chống checkpoint.
+              </p>
+            </div>
+
+            <button
+              disabled={engineRunning || selectedGroupCount === 0}
+              onClick={() => onStartEngine("full")}
+              className="w-full py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+            >
+              <Play className="w-3.5 h-3.5 fill-white" />
+              <span>Bắt Đầu Đăng Trên Web ({selectedGroupCount} nhóm)</span>
+            </button>
+          </div>
+
+          {/* Method 2: 1-Click Desktop Automation */}
+          <div className="p-3.5 bg-white rounded-xl border border-blue-200 bg-blue-50/30 shadow-2xs space-y-2 flex flex-col justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-emerald-800 font-bold text-xs">
+                  <Terminal className="w-4 h-4 text-emerald-600" />
+                  <span>Cách 2: File Tự Động 100% Cho Máy Tính (Windows)</span>
+                </div>
+                <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold">
+                  Không Cần Chạm Tay
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                Tải file chạy <strong>CHAY_TU_DONG_WINDOWS.bat</strong> về máy tính. Chỉ cần click đúp vào file 1 lần duy nhất, máy tính sẽ tự mở Chrome của bạn và tự động đăng lần lượt toàn bộ các nhóm.
+              </p>
+            </div>
+
+            {onOpenScriptModal && (
+              <button
+                onClick={onOpenScriptModal}
+                className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Tải File Chạy Tự Động 1-Click (.BAT)</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

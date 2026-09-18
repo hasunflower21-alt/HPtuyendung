@@ -312,6 +312,24 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({
               {engineState.currentVariation ||
                 "Nội dung văn bản được xoay vòng spintax ngẫu nhiên sẽ hiển thị trực quan tại đây khi bot đăng bài..."}
             </div>
+
+            {activeGroup && engineState.currentVariation && (
+              <div className="pt-1 flex items-center justify-between gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(engineState.currentVariation);
+                    window.open(activeGroup.url, "_blank");
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Mở Tab Nhóm & Tự Copy Bài Này Vào Clipboard</span>
+                </button>
+                <span className="text-[10px] text-slate-500">
+                  (Chỉ cần bấm Ctrl+V để dán bài trên Facebook)
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
