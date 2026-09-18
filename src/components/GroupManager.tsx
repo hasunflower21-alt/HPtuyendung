@@ -29,6 +29,11 @@ import {
 } from "lucide-react";
 import { FacebookGroup, FacebookProfile } from "../types";
 import { INITIAL_GROUPS } from "../utils/spintax";
+import {
+  downloadSampleCsvTemplate,
+  exportGroupsToCsv,
+  parseImportedDataToGroups,
+} from "../utils/csvGroupTemplate";
 
 interface GroupManagerProps {
   groups: FacebookGroup[];
@@ -117,9 +122,11 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
 
   // Focus only on safe / unblocked groups
   const handleFocusSafeGroups = () => {
+    let count = 0;
     setGroups((prev) =>
       prev.map((g) => {
         const isSafe = g.lastStatus === "success" || (g.isVerifiedSafe === true && g.lastStatus !== "blocked");
+        if (isSafe) count++;
         return {
           ...g,
           isActive: isSafe,
@@ -128,8 +135,46 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
     );
     setFilterStatus("safe");
     showToast(
-      `🎯 ĐÃ CHỌN ${safeCount} NHÓM THÀNH CÔNG KHÔNG BỊ CHẶN! Đã tự động bỏ qua các nhóm bị chặn hoặc chờ duyệt.`
+      `🎯 ĐÃ CHỌN ${count} NHÓM THÀNH CÔNG KHÔNG BỊ CHẶN! Đã tự động bỏ qua các nhóm bị chặn hoặc chờ duyệt.`
     );
+  };
+
+  // Select only groups that succeeded in posting (for next posting run)
+  const handleSelectOnlySuccessGroups = () => {
+    let count = 0;
+    setGroups((prev) =>
+      prev.map((g) => {
+        const isSuccess =
+          g.lastStatus === "success" ||
+          (g.successCount && g.successCount > 0 && g.lastStatus !== "blocked" && g.lastStatus !== "pending_approval");
+        if (isSuccess) count++;
+        return {
+          ...g,
+          isActive: !!isSuccess,
+        };
+      })
+    );
+    setFilterStatus("safe");
+    showToast(
+      `🎯 ĐÃ CHỌN ${count} NHÓM ĐÃ ĐĂNG THÀNH CÔNG ĐỂ TIẾP TỤC ĐĂNG CA SAU! Bỏ qua các nhóm chờ duyệt/chặn.`
+    );
+  };
+
+  // Select only pending approval groups
+  const handleSelectOnlyPendingGroups = () => {
+    let count = 0;
+    setGroups((prev) =>
+      prev.map((g) => {
+        const isPending = g.lastStatus === "pending_approval";
+        if (isPending) count++;
+        return {
+          ...g,
+          isActive: isPending,
+        };
+      })
+    );
+    setFilterStatus("pending");
+    showToast(`🟡 ĐÃ CHỌN ${count} NHÓM ĐANG CHỜ PHÊ DUYỆT!`);
   };
 
   // Select only Public Groups to ensure 100% visible posts
@@ -231,41 +276,16 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
       const content = event.target?.result as string;
       if (!content) return;
 
-      // Check if file is JSON
-      if (file.name.endsWith(".json") || content.trim().startsWith("[")) {
-        try {
-          const parsed = JSON.parse(content);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const validGroups: FacebookGroup[] = parsed.map((item, idx) => ({
-              id: item.id || `imported-${Date.now()}-${idx}`,
-              name: item.name || `Nhóm FB #${idx + 1}`,
-              url: item.url || "",
-              isActive: item.isActive ?? true,
-              category: item.category || "discussion",
-              shift: item.shift || "all",
-              lastStatus: item.lastStatus || "ready",
-              successCount: item.successCount || 0,
-              blockedCount: item.blockedCount || 0,
-              isVerifiedSafe: item.isVerifiedSafe ?? false,
-              memberCount: item.memberCount,
-              postNote: item.postNote,
-              lastPostedAt: item.lastPostedAt,
-            })).filter(g => g.url.trim().length > 0);
-
-            if (validGroups.length > 0) {
-              setGroups((prev) => [...prev, ...validGroups]);
-              setShowImportModal(false);
-              showToast(`Đã nhập thành công ${validGroups.length} nhóm từ tệp JSON!`);
-              return;
-            }
-          }
-        } catch (err) {
-          console.warn("Could not parse as JSON, treating as text lines:", err);
-        }
+      const { groups: newItems, count } = parseImportedDataToGroups(content, groups.length);
+      if (count > 0) {
+        setGroups((prev) => [...prev, ...newItems]);
+        setShowImportModal(false);
+        setImportText("");
+        showToast(`Đã nạp thành công ${count} nhóm từ tệp "${file.name}"!`);
+      } else {
+        setImportText(content);
+        showToast("Không tìm thấy link nhóm hợp lệ trong file. Bạn có thể kiểm tra nội dung bên dưới.");
       }
-
-      // Treat as plain text or CSV lines
-      setImportText(content);
     };
     reader.readAsText(file);
     e.target.value = "";
@@ -275,106 +295,14 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
     const trimmedInput = importText.trim();
     if (!trimmedInput) return;
 
-    // Check if pasted content is JSON
-    if (trimmedInput.startsWith("[")) {
-      try {
-        const parsed = JSON.parse(trimmedInput);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const validGroups: FacebookGroup[] = parsed
-            .map((item, idx) => ({
-              id: item.id || `imported-${Date.now()}-${idx}`,
-              name: item.name || `Nhóm FB #${idx + 1}`,
-              url: item.url || "",
-              isActive: item.isActive ?? true,
-              category: item.category || "discussion",
-              shift: item.shift || "all",
-              lastStatus: item.lastStatus || "ready",
-              successCount: item.successCount || 0,
-              blockedCount: item.blockedCount || 0,
-              isVerifiedSafe: item.isVerifiedSafe ?? false,
-              memberCount: item.memberCount,
-              postNote: item.postNote,
-              lastPostedAt: item.lastPostedAt,
-            }))
-            .filter((g) => g.url.trim().length > 0);
-
-          if (validGroups.length > 0) {
-            setGroups((prev) => [...prev, ...validGroups]);
-            setImportText("");
-            setShowImportModal(false);
-            showToast(`Đã nạp thành công ${validGroups.length} nhóm từ danh sách JSON!`);
-            return;
-          }
-        }
-      } catch {
-        // Fallback to line by line
-      }
-    }
-
-    const lines = importText.split("\n");
-    const newItems: FacebookGroup[] = [];
-
-    lines.forEach((line, idx) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
-
-      if (trimmed.includes("|")) {
-        const [name, url] = trimmed.split("|").map((s) => s.trim());
-        if (url) {
-          newItems.push({
-            id: `imported-${Date.now()}-${idx}`,
-            name: name || `Nhóm FB #${groups.length + newItems.length + 1}`,
-            url,
-            isActive: true,
-            category: "discussion",
-            shift: "all",
-            lastStatus: "ready",
-            successCount: 0,
-            blockedCount: 0,
-            isVerifiedSafe: false,
-          });
-        }
-      } else if (trimmed.includes(",")) {
-        const parts = trimmed.split(",").map((s) => s.trim().replace(/^["']|["']$/g, ""));
-        const urlPart = parts.find((p) => p.startsWith("http"));
-        const namePart = parts.find((p) => !p.startsWith("http"));
-        if (urlPart) {
-          newItems.push({
-            id: `imported-${Date.now()}-${idx}`,
-            name: namePart || `Nhóm FB #${groups.length + newItems.length + 1}`,
-            url: urlPart,
-            isActive: true,
-            category: "discussion",
-            shift: "all",
-            lastStatus: "ready",
-            successCount: 0,
-            blockedCount: 0,
-            isVerifiedSafe: false,
-          });
-        }
-      } else if (trimmed.startsWith("http")) {
-        newItems.push({
-          id: `imported-${Date.now()}-${idx}`,
-          name: `Nhóm FB #${groups.length + newItems.length + 1}`,
-          url: trimmed,
-          isActive: true,
-          category: "discussion",
-          shift: "all",
-          lastStatus: "ready",
-          successCount: 0,
-          blockedCount: 0,
-          isVerifiedSafe: false,
-        });
-      }
-    });
-
-    if (newItems.length > 0) {
+    const { groups: newItems, count } = parseImportedDataToGroups(trimmedInput, groups.length);
+    if (count > 0) {
       setGroups((prev) => [...prev, ...newItems]);
       setImportText("");
       setShowImportModal(false);
-      showToast(`Đã nạp thành công ${newItems.length} nhóm mới vào danh sách!`);
+      showToast(`Đã nạp thành công ${count} nhóm mới vào danh sách!`);
     } else {
-      showToast("Không nhận diện được đường link nhóm hợp lệ.");
+      showToast("Không nhận diện được đường link nhóm Facebook hợp lệ.");
     }
   };
 
@@ -482,7 +410,23 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
             className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors whitespace-nowrap shadow-2xs"
           >
             <Upload className="w-3.5 h-3.5 text-slate-500" />
-            <span>Dán Nhiều Link</span>
+            <span>Nhập File / Dán Link</span>
+          </button>
+          <button
+            onClick={() => exportGroupsToCsv(groups)}
+            className="px-2.5 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center gap-1 transition-colors whitespace-nowrap shadow-2xs"
+            title="Xuất danh sách nhóm kèm trạng thái ra file Excel (.CSV UTF-8)"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Xuất Excel (.CSV)</span>
+          </button>
+          <button
+            onClick={downloadSampleCsvTemplate}
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-medium flex items-center gap-1 transition-colors whitespace-nowrap shadow-2xs"
+            title="Tải tệp mẫu Excel chuẩn để điền và nhập nhóm"
+          >
+            <Tag className="w-3.5 h-3.5 text-blue-500" />
+            <span className="hidden sm:inline">File Mẫu CSV</span>
           </button>
           <button
             onClick={() => {
@@ -500,7 +444,7 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
             title="Xuất file JSON sao lưu"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span className="hidden sm:inline">Xuất JSON</span>
+            <span className="hidden sm:inline">JSON</span>
           </button>
         </div>
       </div>
@@ -515,14 +459,19 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900">
-                  Theo Dõi Đăng Bài Thành Công & Không Bị Chặn
+                  Lọc Nhóm Thành Công & Kiểm Soát Phê Duyệt
                 </h3>
                 <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  {safeCount}/{groups.length} nhóm an toàn ({Math.round(groups.length > 0 ? (safeCount / groups.length) * 100 : 0)}%)
+                  {safeCount}/{groups.length} thành công ({Math.round(groups.length > 0 ? (safeCount / groups.length) * 100 : 0)}%)
                 </span>
+                {pendingCount > 0 && (
+                  <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                    {pendingCount} chờ duyệt
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-slate-600">
-                Hệ thống tự động ghi nhận các nhóm đăng mượt không gặp checkpoint/chặn link để bạn tập trung khai thác.
+                Chỉ chọn các trang/nhóm đã đăng tải thành công để tiếp tục đăng ca sau. Tự động loại trừ nhóm bị chặn hoặc cấm link.
               </p>
             </div>
           </div>
@@ -530,22 +479,33 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
           {/* Quick Action Buttons */}
           <div className="flex items-center gap-1.5 w-full sm:w-auto flex-wrap">
             <button
+              onClick={handleSelectOnlySuccessGroups}
+              className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
+              title="Chỉ chọn các trang/nhóm đã đăng tải thành công để chạy ca sau"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+              <span>🎯 Đăng Tiếp {safeCount} Nhóm Thành Công</span>
+            </button>
+
+            <button
               onClick={handleSelectOnlyPublicGroups}
               className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
               title="Chỉ chọn nhóm Công Khai để đảm bảo bất kỳ ai có link cũng xem được bài"
             >
               <Globe className="w-3.5 h-3.5 text-yellow-300" />
-              <span>🌐 Chọn Nhóm Công Khai</span>
+              <span>🌐 Nhóm Công Khai</span>
             </button>
 
-            <button
-              onClick={handleFocusSafeGroups}
-              className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
-              title="Tự động chỉ tích chọn các nhóm đã kiểm chứng an toàn không bị chặn"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-              <span>🎯 Đăng {safeCount} Nhóm An Toàn</span>
-            </button>
+            {pendingCount > 0 && (
+              <button
+                onClick={handleSelectOnlyPendingGroups}
+                className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-all whitespace-nowrap"
+                title="Lọc và chọn các nhóm đang chờ admin duyệt bài"
+              >
+                <AlertCircle className="w-3.5 h-3.5 text-amber-700" />
+                <span>⏳ Chờ Duyệt ({pendingCount})</span>
+              </button>
+            )}
 
             {onOpenDiagnosticModal && (
               <button
@@ -1683,31 +1643,42 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                 <label className="text-xs font-bold text-slate-700">
-                  Dán Danh Sách Link (1 nhóm / dòng):
+                  Dán Danh Sách Link Hoặc Tải File:
                 </label>
-                <label className="cursor-pointer text-[11px] font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1">
-                  <Upload className="w-3 h-3" />
-                  <span>Chọn tệp .txt / .csv / .json</span>
-                  <input
-                    type="file"
-                    accept=".txt,.csv,.json"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={downloadSampleCsvTemplate}
+                    className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-0.5"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Tải File Mẫu Excel (.CSV)</span>
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <label className="cursor-pointer text-[11px] font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1">
+                    <Upload className="w-3 h-3" />
+                    <span>Chọn tệp .csv / .json / .txt</span>
+                    <input
+                      type="file"
+                      accept=".txt,.csv,.json"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
               </div>
 
               <textarea
                 rows={7}
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
-                placeholder="https://www.facebook.com/groups/dan.cu.ecopark&#10;Hội Cơ Điện Hà Nội | https://www.facebook.com/groups/codien.hanoi&#10;Gia Đình Smart City, https://www.facebook.com/groups/smartcity&#10;..."
+                placeholder="https://www.facebook.com/groups/dan.cu.ecopark&#10;Hội Cư Dân Ecopark, https://www.facebook.com/groups/dan.cu.ecopark, public, ready&#10;Hội Cơ Điện Hà Nội | https://www.facebook.com/groups/codien.hanoi&#10;Gia Đình Smart City, https://www.facebook.com/groups/smartcity&#10;..."
                 className="w-full bg-slate-50 hover:bg-white focus:bg-white border border-slate-300 rounded-lg p-2.5 text-xs text-slate-800 placeholder-slate-400 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500 leading-relaxed"
               ></textarea>
-              <div className="text-[10px] text-slate-400 mt-1">
-                Hỗ trợ định dạng: <code>URL</code> hoặc <code>Tên | URL</code> hoặc <code>Tên, URL</code>
+              <div className="text-[10px] text-slate-500 mt-1 flex items-center justify-between">
+                <span>Hỗ trợ: Copy-paste từ Excel (.csv), đường link đơn lẻ, <code>Tên | URL</code> hoặc <code>Tên, URL, public/private</code></span>
               </div>
             </div>
 

@@ -46,10 +46,23 @@ export default function App() {
     return localStorage.getItem("fb_spintax_content") || DEFAULT_POST.spintax;
   });
 
-  const [images, setImages] = useState<string[]>([
-    "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=60",
-    "https://images.unsplash.com/photo-1541888946425-d0fbb186156f?w=800&auto=format&fit=crop&q=60"
-  ]);
+  const [images, setImages] = useState<string[]>(() => {
+    const saved = localStorage.getItem("fb_post_images");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        // fallback
+      }
+    }
+    return [
+      "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=60",
+      "https://images.unsplash.com/photo-1541888946425-d0fbb186156f?w=800&auto=format&fit=crop&q=60"
+    ];
+  });
 
   // Groups state
   const [groups, setGroups] = useState<FacebookGroup[]>(() => {
@@ -178,8 +191,34 @@ export default function App() {
   }, [activeProfileId]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem("fb_post_images", JSON.stringify(images));
+    } catch (e) {
+      console.warn("Storage quota exceeded when saving images:", e);
+    }
+  }, [images]);
+
+  useEffect(() => {
     localStorage.setItem("fb_post_records", JSON.stringify(postRecords));
   }, [postRecords]);
+
+  // Function to select only groups that posted successfully for subsequent runs
+  const handleSelectOnlySuccessGroups = () => {
+    let count = 0;
+    setGroups((prev) =>
+      prev.map((g) => {
+        const isSuccess =
+          g.lastStatus === "success" ||
+          (g.successCount && g.successCount > 0 && g.lastStatus !== "blocked");
+        if (isSuccess) count++;
+        return {
+          ...g,
+          isActive: !!isSuccess,
+        };
+      })
+    );
+    return count;
+  };
 
   // Simulation execution engine refs
   const executionQueueRef = useRef<FacebookGroup[]>([]);
@@ -298,11 +337,28 @@ export default function App() {
       setTimeout(() => {
         if (isPausedRef.current) return;
 
-        addLog(
-          "success",
-          `✅ Đã gửi bài thành công vào nhóm: ${group.name} (An toàn, không checkpoint/chặn link -> Đã lưu vào nhóm uy tín)`,
-          group.name
-        );
+        // Determine whether group is instant success (Live) or pending admin approval
+        const isPending =
+          group.lastStatus === "pending_approval" ||
+          (group.privacy === "private" &&
+            group.lastStatus !== "success" &&
+            (group.postNote || "").toLowerCase().includes("duyệt"));
+
+        const postStatus: PostResultRecord["status"] = isPending ? "pending_approval" : "success";
+
+        if (postStatus === "success") {
+          addLog(
+            "success",
+            `✅ ĐÃ ĐĂNG THÀNH CÔNG (Live ngay): ${group.name} - Duyệt tự động, bài viết đã hiển thị công khai.`,
+            group.name
+          );
+        } else {
+          addLog(
+            "warning",
+            `⏳ ĐÃ GỬI BÀI (Chờ admin phê duyệt): ${group.name} - Nhóm có bật kiểm duyệt, bài đang chờ duyệt.`,
+            group.name
+          );
+        }
 
         // Update group status with tracking history & record post result
         const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -323,8 +379,12 @@ export default function App() {
           profileName: targetProfile?.name || "Nick Chính",
           contentVariant: variant.substring(0, 140) + (variant.length > 140 ? "..." : ""),
           postUrl: postPermalink,
-          status: "success",
-          note: "Đã đăng bài thành công, không bị chặn",
+          groupPrivacy: group.privacy || "public",
+          status: postStatus,
+          note:
+            postStatus === "success"
+              ? "Đã đăng bài thành công, duyệt tự động"
+              : "Bài viết đã gửi, đang chờ quản trị viên nhóm phê duyệt",
         };
 
         setPostRecords((prev) => [newRecord, ...prev]);
@@ -334,11 +394,14 @@ export default function App() {
             g.id === group.id
               ? {
                   ...g,
-                  lastStatus: "success",
-                  isVerifiedSafe: true,
-                  successCount: (g.successCount || 0) + 1,
+                  lastStatus: postStatus,
+                  isVerifiedSafe: postStatus === "success" ? true : g.isVerifiedSafe,
+                  successCount: (g.successCount || 0) + (postStatus === "success" ? 1 : 0),
                   lastPostedAt: `${nowTime} Hôm nay`,
-                  postNote: "Đăng mượt, duyệt tự động, không bị chặn",
+                  postNote:
+                    postStatus === "success"
+                      ? "Đăng mượt, duyệt tự động, không bị chặn"
+                      : "Đang chờ quản trị viên nhóm duyệt",
                   lastPostUrl: postPermalink,
                 }
               : g
