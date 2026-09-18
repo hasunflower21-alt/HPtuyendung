@@ -28,6 +28,7 @@ interface LiveMonitorProps {
   onToggleBatterySaver?: () => void;
   onGoToGroups?: () => void;
   groups?: FacebookGroup[];
+  onOpenProfiles?: () => void;
 }
 
 export const LiveMonitor: React.FC<LiveMonitorProps> = ({
@@ -41,9 +42,11 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({
   onToggleBatterySaver,
   onGoToGroups,
   groups = [],
+  onOpenProfiles,
 }) => {
   const [logFilter, setLogFilter] = useState<"all" | "success" | "delay" | "warning">("all");
   const [copiedLogs, setCopiedLogs] = useState(false);
+  const [showTroubleshootDetails, setShowTroubleshootDetails] = useState(true);
 
   const filteredLogs = logs.filter((log) => {
     if (logFilter === "all") return true;
@@ -52,6 +55,59 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({
     if (logFilter === "warning") return log.type === "warning" || log.type === "error";
     return true;
   });
+
+  // Tự động phân tích lỗi từ danh sách nhật ký
+  const errorLogs = logs.filter((l) => l.type === "error" || l.type === "warning");
+  const latestError = errorLogs.length > 0 ? errorLogs[errorLogs.length - 1] : null;
+
+  const getErrorDiagnosis = (errorMsg: string) => {
+    const msg = errorMsg.toLowerCase();
+    if (msg.includes("token") || msg.includes("auth") || msg.includes("cookie") || msg.includes("chưa đăng nhập") || msg.includes("hết hạn")) {
+      return {
+        title: "Lỗi Xác Thực / Token - Cookie Hết Hạn",
+        cause: "Facebook từ chối do Token hoặc Cookie của tài khoản chưa được nhập hoặc phiên đăng nhập đã hết hạn.",
+        solution: "1. Mở 'Quản Lý Nick' cập nhật lại Cookie/Token mới.\n2. Hoặc sử dụng tính năng 'Xuất Kịch Bản Playwright / File .BAT' để chạy trực tiếp trên Chrome thật không lo hết hạn token.",
+        actionType: "profile",
+        actionText: "Mở Cấu Hình Nick Ngay",
+      };
+    }
+    if (msg.includes("không tìm thấy ô đăng") || msg.includes("chưa tham gia") || msg.includes("bị chặn") || msg.includes("quyền") || msg.includes("closed")) {
+      return {
+        title: "Chưa Tham Gia Nhóm Hoặc Nhóm Tắt Đăng Bài Tự Do",
+        cause: "Tài khoản Facebook của bạn chưa là thành viên đã được duyệt trong nhóm này, hoặc nhóm này chỉ cho phép Quản trị viên đăng bài.",
+        solution: "1. Vào Facebook và tham gia nhóm trước.\n2. Vào tab 'Danh Sách Nhóm' trong app, lọc bỏ các nhóm chưa tham gia hoặc tắt nút hoạt động của nhóm này.",
+        actionType: "groups",
+        actionText: "Quản Lý & Lọc Lại Nhóm",
+      };
+    }
+    if (msg.includes("duyệt") || msg.includes("pending") || msg.includes("approval")) {
+      return {
+        title: "Bài Viết Đang Trong Hàng Chờ Phê Duyệt Của Nhóm",
+        cause: "Nhóm này bật chế độ kiểm duyệt nội dung. Bài đăng đã gửi thành công tới Quản trị viên nhóm.",
+        solution: "Đây là cơ chế bình thường của nhóm Facebook. Bạn không cần sửa gì thêm, bài sẽ hiển thị ngay khi Quản trị viên bấm Duyệt.",
+        actionType: "info",
+        actionText: "Đã Hiểu",
+      };
+    }
+    if (msg.includes("lock") || msg.includes("ebusy") || msg.includes("chrome")) {
+      return {
+        title: "Xung Đột Google Chrome Đang Chạy Nền",
+        cause: "Trình duyệt Chrome trên máy đang mở khiến Windows khóa thư mục Profile người dùng.",
+        solution: "1. Đóng toàn bộ các tab và cửa sổ Google Chrome trên máy tính.\n2. Chạy lại file .BAT tự động.",
+        actionType: "info",
+        actionText: "Đã Hiểu",
+      };
+    }
+    return {
+      title: "Lỗi Kết Nối Hoặc Bị Giới Hạn Tần Suất",
+      cause: "Facebook phản hồi chậm hoặc đang tạm khóa tính năng đăng nhóm do gửi bài quá nhanh liên tục.",
+      solution: "1. Tăng thời gian nghỉ giữa các nhóm lên 3 - 5 phút ở tab 'Cấu Hình Lịch'.\n2. Xoay vòng nội dung Spintax đa dạng hơn để tránh trùng lặp.",
+      actionType: "groups",
+      actionText: "Kiểm Tra Danh Sách Nhóm",
+    };
+  };
+
+  const diagnosis = latestError ? getErrorDiagnosis(latestError.message) : null;
 
   const handleCopyLogs = () => {
     const text = logs
@@ -333,6 +389,71 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Diagnostic & Quick-Fix Alert Banner */}
+      {diagnosis && (
+        <div className="bg-gradient-to-r from-red-50 via-amber-50 to-orange-50 border-2 border-red-300 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2.5">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-red-700 bg-red-100 px-2 py-0.5 rounded">
+                  Chẩn Đoán Lỗi & Cách Sửa Nhanh
+                </span>
+                <h3 className="text-xs sm:text-sm font-bold text-slate-900 mt-0.5">
+                  {diagnosis.title}
+                </h3>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowTroubleshootDetails((prev) => !prev)}
+              className="text-[11px] text-slate-500 hover:text-slate-800 font-semibold underline whitespace-nowrap"
+            >
+              {showTroubleshootDetails ? "Thu gọn" : "Xem chi tiết"}
+            </button>
+          </div>
+
+          {showTroubleshootDetails && (
+            <div className="space-y-2 pt-1 border-t border-red-200/60 text-[11px]">
+              <div>
+                <span className="font-bold text-slate-800">🔍 Nguyên nhân: </span>
+                <span className="text-slate-700">{diagnosis.cause}</span>
+              </div>
+
+              <div className="p-2.5 bg-white/80 rounded-lg border border-red-200 text-slate-800 leading-relaxed font-sans whitespace-pre-line">
+                <span className="font-bold text-emerald-800">💡 Hướng dẫn khắc phục từng bước:</span>
+                {"\n"}
+                {diagnosis.solution}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {diagnosis.actionType === "profile" && onOpenProfiles && (
+                  <button
+                    onClick={onOpenProfiles}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-2xs transition-colors flex items-center gap-1.5"
+                  >
+                    <span>{diagnosis.actionText}</span>
+                    <span>&rarr;</span>
+                  </button>
+                )}
+
+                {diagnosis.actionType === "groups" && onGoToGroups && (
+                  <button
+                    onClick={onGoToGroups}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs transition-colors flex items-center gap-1.5"
+                  >
+                    <span>{diagnosis.actionText}</span>
+                    <span>&rarr;</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Terminal Log Console - Compact High Information Density */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">

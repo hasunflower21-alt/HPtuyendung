@@ -622,6 +622,7 @@ export default function App() {
             onToggleBatterySaver={() => setIsBatterySaverOpen(true)}
             onGoToGroups={() => setActiveTab("groups")}
             groups={groups}
+            onOpenProfiles={() => setIsProfileModalOpen(true)}
           />
         )}
       </main>
