@@ -1818,6 +1818,24 @@ export const PostComposer: React.FC<PostComposerProps> = ({
         </div>
       </div>
 
+      {/* Step 1 Completion & Next Action Bar */}
+      <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs text-slate-600">
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+          <span>
+            Nội dung và <strong>{images.length} ảnh</strong> đã được tự động lưu ({lastAutoSavedTime})
+          </span>
+        </div>
+
+        <button
+          onClick={onGoToNextTab}
+          className="w-full sm:w-auto px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <span>Tiếp Tục ➔ Chọn Nhóm Mục Tiêu (Bước 2)</span>
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
       {/* Lightbox / Full-size Modal */}
       {selectedPreviewImage && (
         <div

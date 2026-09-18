@@ -224,3 +224,97 @@ async function runAutoPoster() {
 runAutoPoster().catch(console.error);
 `;
 }
+
+export function generateWindowsBatchFile(): string {
+  return `@echo off
+chcp 65001 >nul
+title FB ĐẨY BÀI - TỰ ĐỘNG ĐĂNG NHÓM FACEBOOK
+color 0b
+
+echo ===================================================================
+echo   🚀 FB ĐẨY BÀI - CÔNG CỤ TỰ ĐỘNG ĐĂNG BÀI FACEBOOK TRÊN CHROME THẬT
+echo ===================================================================
+echo.
+
+:: 1. Kiem tra moi truong Node.js
+where node >nul 2>nul
+if %errorlevel% neq 0 (
+    color 0c
+    echo [!] CHUA TIM THAY NODE.JS TREN MAY TINH CUA BAN!
+    echo.
+    echo De chay duoc cong cu tu dong hoa, ban chi can cai dat Node.js mot lan:
+    echo 1. Tai ban LTS mien phi tai: https://nodejs.org/
+    echo 2. Cai dat (bam Next lien tuc)
+    echo 3. Nhap dup chuot lai vao file nay de chay!
+    echo.
+    echo Dang tu dong mo trang tai Node.js cho ban...
+    start https://nodejs.org/
+    echo ===================================================================
+    pause
+    exit /b
+)
+
+echo [✓] Da phat hien Node.js tren may:
+node -v
+echo.
+
+:: 2. Kiem tra va tu dong cai dat thu vien playwright-core neu chua co
+if not exist node_modules\\playwright-core (
+    echo [*] Dang chuan bi moi truong va thu vien dieu khien Chrome (Playwright)...
+    echo Qua trinh nay chi tai mot lan dau (khoang 10-20 giay)...
+    call npm init -y >nul 2>nul
+    call npm install playwright-core >nul
+    echo [✓] Da cai dat xong thu vien tu dong hoa!
+    echo.
+)
+
+:: 3. Kiem tra file script fb_auto_post.js
+if not exist fb_auto_post.js (
+    color 0c
+    echo [!] KHONG TIM THAY FILE 'fb_auto_post.js' TRONG CUNG THU MUC!
+    echo.
+    echo Vui long dam bao ban da tai file 'fb_auto_post.js' tu web app
+    echo va de chung cung mot thu muc (vi du: ngoai Desktop hoac mot thu muc bat ky) voi file BAT nay.
+    echo ===================================================================
+    pause
+    exit /b
+)
+
+:: 4. Khoi chay script tu dong hoa
+echo [*] DANG KHOI CHAY GOOGLE CHROME THAT DE DANG BAI...
+echo [!] Ban co the thu nho cua so nay de cong cu tu chay ngam theo lich trinh.
+echo -------------------------------------------------------------------
+node fb_auto_post.js
+
+echo.
+echo ===================================================================
+echo [✓] TIEN TRINH DANG BAI DA KET THUC HOAC TAM DUNG.
+echo File bao cao ket qua: post_results.json
+echo ===================================================================
+pause
+`;
+}
+
+export function generateMacLinuxScript(): string {
+  return `#!/bin/bash
+echo "==================================================================="
+echo "  🚀 FB ĐẨY BÀI - TỰ ĐỘNG ĐĂNG NHÓM FACEBOOK (MAC / LINUX)"
+echo "==================================================================="
+echo ""
+
+if ! command -v node &> /dev/null; then
+    echo "[!] Không tìm thấy Node.js. Vui lòng cài đặt Node.js tại https://nodejs.org"
+    exit 1
+fi
+
+if [ ! -d "node_modules/playwright-core" ]; then
+    echo "[*] Đang cài đặt thư viện playwright-core..."
+    npm init -y > /dev/null 2>&1
+    npm install playwright-core
+fi
+
+echo "[*] Đang chạy script tự động hóa..."
+node fb_auto_post.js
+`;
+}
+

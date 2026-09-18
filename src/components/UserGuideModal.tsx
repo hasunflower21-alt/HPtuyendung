@@ -310,57 +310,42 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
               <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 space-y-2">
                 <div className="flex items-center gap-2 font-bold text-sm">
                   <Terminal className="w-4 h-4 text-purple-600" />
-                  <span>Cách Kích Hoạt Tự Động Đăng 100% Bằng Script (Chỉ 3 Bước)</span>
+                  <span>Cách Chạy Tự Động Đăng 100% (Tiện Lợi Với File 1-Click)</span>
                 </div>
                 <p className="text-xs text-purple-800">
-                  Bạn chỉ cần cài đặt công cụ 1 lần đầu tiên trên máy tính. Các lần sau chỉ cần tải file script từ app về và bấm chạy!
+                  Bạn có thể chọn chạy bằng <strong>File .BAT 1-Click (Dành cho Windows)</strong> hoặc chạy lệnh qua Terminal/CMD.
                 </p>
               </div>
 
-              <div className="space-y-3">
-                {/* Step 1 */}
-                <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                      Bước 1: Cài đặt Node.js (Chỉ làm 1 lần duy nhất)
-                    </span>
-                    <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
-                      1 lần duy nhất
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    Nếu máy tính chưa có Node.js, hãy tải và cài đặt miễn phí tại{" "}
-                    <a
-                      href="https://nodejs.org"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-blue-600 underline font-bold"
-                    >
-                      nodejs.org
-                    </a>{" "}
-                    (bản LTS).
-                  </p>
-                </div>
-
-                {/* Step 2 */}
-                <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
-                  <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                    Bước 2: Tải File Script Từ App Web
+              {/* Windows 1-Click Guide (Best way) */}
+              <div className="p-4 rounded-xl bg-emerald-50/80 border border-emerald-300 shadow-2xs space-y-2.5">
+                <div className="flex items-center gap-2 font-bold text-slate-900 text-xs sm:text-sm">
+                  <span className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-black">
+                    ★
                   </span>
-                  <p className="text-xs text-slate-600">
-                    Sau khi soạn bài và chọn nhóm ưng ý trên web, bạn bấm nút{" "}
-                    <strong>"Script Node.js"</strong> ở góc trên ➔ Bấm{" "}
-                    <strong>"Tải File Script (fb_auto_post.js)"</strong> về máy tính.
-                  </p>
+                  <span className="text-emerald-950">Cách 1: Chạy Bằng File 1-Click (Khuyên Dùng Cho Windows)</span>
+                  <span className="text-[10px] bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full font-bold">
+                    Dễ Nhất
+                  </span>
                 </div>
+                <ol className="list-decimal list-inside space-y-1 text-xs text-emerald-900 pl-1">
+                  <li>Bấm nút <strong>"Script Playwright (Node.js)"</strong> ở góc trên ➔ Bấm <strong>"Tải Trọn Bộ (2 File)"</strong> để tải cả <code className="font-bold bg-white px-1.5 py-0.5 rounded border border-emerald-300 text-slate-800">CHAY_TU_DONG_WINDOWS.bat</code> và <code className="font-bold bg-white px-1.5 py-0.5 rounded border border-emerald-300 text-slate-800">fb_auto_post.js</code> về để chung một thư mục.</li>
+                  <li><strong>Nhấp đúp chuột vào file <code className="font-bold text-emerald-950 bg-white px-1.5 py-0.5 rounded border border-emerald-400">CHAY_TU_DONG_WINDOWS.bat</code></strong>.</li>
+                  <li>File BAT sẽ tự động kiểm tra, cài đặt thư viện cần thiết và khởi động Google Chrome tự động đăng bài!</li>
+                </ol>
+                <div className="p-2.5 rounded-lg bg-white/90 border border-emerald-300 text-[11px] text-slate-700">
+                  ⚠️ <em>Lưu ý: Không nhấp đúp trực tiếp vào file <code>.js</code> vì Windows sẽ dùng trình đọc cũ báo lỗi "Windows Script Host". Hãy nhấp đúp vào file <code>.bat</code> để chạy!</em>
+                </div>
+              </div>
 
-                {/* Step 3 */}
+              {/* Terminal Guide (For advanced users) */}
+              <div className="space-y-3">
                 <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2.5">
                   <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                    Bước 3: Mở Terminal/Command Prompt & Chạy Lệnh
+                    Cách 2: Chạy Thủ Công Bằng Command Prompt / PowerShell
                   </span>
                   <p className="text-xs text-slate-600">
-                    Mở thư mục chứa file vừa tải về và chạy lệnh:
+                    Mở thư mục chứa file <code>fb_auto_post.js</code>, mở CMD/PowerShell và gõ lệnh:
                   </p>
                   <div className="flex items-center justify-between bg-slate-900 text-emerald-400 p-2.5 rounded-lg font-mono text-xs">
                     <code>node fb_auto_post.js</code>
@@ -372,9 +357,6 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                       <span>{copiedCode ? "Đã chép" : "Sao chép"}</span>
                     </button>
                   </div>
-                  <p className="text-xs text-slate-500 italic">
-                    ➔ Trình duyệt Chrome sẽ tự động mở lên, truy cập từng nhóm, gõ phím, đính kèm ảnh và đăng bài hoàn toàn tự động!
-                  </p>
                 </div>
               </div>
 
@@ -388,7 +370,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                     className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5"
                   >
                     <Terminal className="w-3.5 h-3.5" />
-                    <span>Mở Bảng Xuất Script Playwright Ngay</span>
+                    <span>Mở Bảng Tải Script & File .BAT Ngay</span>
                   </button>
                 </div>
               )}

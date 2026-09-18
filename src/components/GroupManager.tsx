@@ -22,6 +22,7 @@ import {
   Sparkles,
   Check,
   ChevronDown,
+  ChevronRight,
   User,
   Globe,
   Lock,
@@ -1440,10 +1441,10 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={onGoToSchedule}
-              className="w-full sm:w-auto px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5"
+              className="w-full sm:w-auto px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>Tiếp tục: Cài Đặt Lịch & Giãn Cách</span>
-              <span>&rarr;</span>
+              <span>Tiếp Tục ➔ Lên Lịch & 1-Click Tự Đăng (Bước 3)</span>
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>

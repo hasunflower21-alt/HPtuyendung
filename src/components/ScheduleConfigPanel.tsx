@@ -1,11 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Clock,
   ShieldCheck,
   Zap,
   Play,
+  CheckCircle2,
   Sliders,
   Sparkles,
+  ArrowRight,
+  Info,
+  Check,
 } from "lucide-react";
 import { ScheduleConfig } from "../types";
 
@@ -24,210 +28,308 @@ export const ScheduleConfigPanel: React.FC<ScheduleConfigPanelProps> = ({
   engineRunning,
   selectedGroupCount,
 }) => {
+  const [selectedPreset, setSelectedPreset] = useState<"safe" | "fast" | "custom">("safe");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   // Approximate run time calculation
   const avgDelaySec = (config.minDelaySeconds + config.maxDelaySeconds) / 2;
   const totalMinutes = Math.round((selectedGroupCount * (avgDelaySec + 20)) / 60);
 
+  const handleApplyPreset = (preset: "safe" | "fast") => {
+    setSelectedPreset(preset);
+    if (preset === "safe") {
+      setConfig((prev) => ({
+        ...prev,
+        minDelaySeconds: 240, // 4 mins
+        maxDelaySeconds: 480, // 8 mins
+        stealthModeEnabled: true,
+        autoScrollBeforePost: true,
+      }));
+    } else if (preset === "fast") {
+      setConfig((prev) => ({
+        ...prev,
+        minDelaySeconds: 60, // 1 min
+        maxDelaySeconds: 180, // 3 mins
+        stealthModeEnabled: true,
+        autoScrollBeforePost: false,
+      }));
+    }
+  };
+
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {/* Overview Banner - Compact & Mobile Friendly */}
-      <div className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Clock className="w-4 h-4 text-blue-600" />
-            <h2 className="text-xs sm:text-sm font-bold text-slate-900">
-              Lập Lịch & Giãn Cách An Toàn (Anti-Spam)
+    <div className="space-y-4">
+      {/* Primary Hero 1-Click Launch Card */}
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 rounded-2xl p-4 sm:p-6 text-white shadow-lg relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-bold backdrop-blur-xs">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>Bước 3: Sẵn Sàng Đăng Bài Tự Động</span>
+            </div>
+            <h2 className="text-base sm:text-xl font-black tracking-tight">
+              Bắt Đầu Tiến Trình Tự Động Đăng Nhóm
             </h2>
-            <span className="text-[10px] px-2 py-0.2 rounded-full bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
-              Chuẩn Người Dùng Thật
-            </span>
+            <p className="text-xs sm:text-sm text-blue-100 max-w-2xl leading-relaxed">
+              Hệ thống sẽ tự động xử lý toàn bộ: xoay nội dung Spintax, đính kèm ảnh, nghỉ ngẫu nhiên chống khóa nick và báo cáo link bài viết trực tiếp trên web.
+            </p>
           </div>
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            Phân bố 2 ca/ngày và nghỉ ngẫu nhiên 4 – 8 phút giữa các nhóm để bảo vệ nick không bị checkpoint.
-          </p>
+
+          {/* Large 1-Click Launch Buttons */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-shrink-0">
+            <button
+              id="test-run-single-btn"
+              disabled={engineRunning || selectedGroupCount === 0}
+              onClick={() => onStartEngine("test")}
+              className="px-4 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-amber-950 text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md cursor-pointer"
+              title="Thử nghiệm đăng ngay vào 1 nhóm đầu tiên để kiểm tra kết quả"
+            >
+              <Zap className="w-4 h-4 fill-amber-950" />
+              <span>Đăng Thử 1 Nhóm</span>
+            </button>
+
+            <button
+              id="start-full-campaign-btn"
+              disabled={engineRunning || selectedGroupCount === 0}
+              onClick={() => onStartEngine("full")}
+              className="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md cursor-pointer ring-2 ring-white/30"
+              title="Bắt đầu chạy tự động đăng toàn bộ các nhóm đã chọn"
+            >
+              <Play className="w-4 h-4 fill-white" />
+              <span>▶ BẮT ĐẦU ĐĂNG ({selectedGroupCount} NHÓM)</span>
+            </button>
+          </div>
         </div>
 
-        {/* Action Trigger Buttons */}
-        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
-          <button
-            id="test-run-single-btn"
-            disabled={engineRunning || selectedGroupCount === 0}
-            onClick={() => onStartEngine("test")}
-            className="flex-1 md:flex-none px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center justify-center gap-1 transition-all disabled:opacity-50 whitespace-nowrap shadow-2xs"
-          >
-            <Zap className="w-3.5 h-3.5 text-amber-600" />
-            <span>Thử 1 Nhóm</span>
-          </button>
+        {/* Selected Group Count Warning if 0 */}
+        {selectedGroupCount === 0 && (
+          <div className="mt-3.5 p-3 rounded-xl bg-amber-500/20 border border-amber-300/40 text-amber-100 text-xs flex items-center gap-2">
+            <Info className="w-4 h-4 text-amber-300 flex-shrink-0" />
+            <span>
+              Bạn chưa chọn nhóm nào. Hãy chuyển sang <strong>Bước 2: Chọn Nhóm Mục Tiêu</strong> để tích chọn ít nhất 1 nhóm trước khi bấm bắt đầu!
+            </span>
+          </div>
+        )}
+      </div>
 
-          <button
-            id="start-full-campaign-btn"
-            disabled={engineRunning || selectedGroupCount === 0}
-            onClick={() => onStartEngine("full")}
-            className="flex-1 md:flex-none px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-50 whitespace-nowrap"
-          >
-            <Play className="w-3.5 h-3.5 fill-white" />
-            <span>Bắt Đầu ({selectedGroupCount} nhóm)</span>
-          </button>
+      {/* Preset Mode Selection Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* Preset 1: Standard Safe (Recommended) */}
+        <div
+          onClick={() => handleApplyPreset("safe")}
+          className={`p-4 rounded-xl border cursor-pointer transition-all ${
+            selectedPreset === "safe"
+              ? "bg-emerald-50/80 border-emerald-400 ring-2 ring-emerald-300/40 shadow-xs"
+              : "bg-white border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                Chế Độ An Toàn Chuẩn
+              </h3>
+            </div>
+            {selectedPreset === "safe" && (
+              <span className="p-0.5 rounded-full bg-emerald-600 text-white">
+                <Check className="w-3 h-3" />
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
+            Nghỉ ngẫu nhiên <strong>4 – 8 phút/nhóm</strong> + Mô phỏng người thật gõ phím. Giúp nick an toàn tuyệt đối, không bị khóa.
+          </p>
+          <span className="inline-block px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+            Khuyên Dùng Cho Nick Chính
+          </span>
+        </div>
+
+        {/* Preset 2: Fast Mode */}
+        <div
+          onClick={() => handleApplyPreset("fast")}
+          className={`p-4 rounded-xl border cursor-pointer transition-all ${
+            selectedPreset === "fast"
+              ? "bg-blue-50/80 border-blue-400 ring-2 ring-blue-300/40 shadow-xs"
+              : "bg-white border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-blue-600" />
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                Chế Độ Tăng Tốc
+              </h3>
+            </div>
+            {selectedPreset === "fast" && (
+              <span className="p-0.5 rounded-full bg-blue-600 text-white">
+                <Check className="w-3 h-3" />
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
+            Nghỉ nhanh <strong>1 – 3 phút/nhóm</strong>. Hoàn thành chiến dịch nhanh chóng khi cần đẩy bài gấp.
+          </p>
+          <span className="inline-block px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+            Phù Hợp Cho Nick Phụ / Clone
+          </span>
+        </div>
+
+        {/* Preset 3: Custom Toggle */}
+        <div
+          onClick={() => {
+            setSelectedPreset("custom");
+            setShowAdvanced(true);
+          }}
+          className={`p-4 rounded-xl border cursor-pointer transition-all ${
+            selectedPreset === "custom"
+              ? "bg-purple-50/80 border-purple-400 ring-2 ring-purple-300/40 shadow-xs"
+              : "bg-white border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-1.5">
+              <Sliders className="w-4 h-4 text-purple-600" />
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                Tùy Chỉnh Nâng Cao
+              </h3>
+            </div>
+            {selectedPreset === "custom" && (
+              <span className="p-0.5 rounded-full bg-purple-600 text-white">
+                <Check className="w-3 h-3" />
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-600 leading-relaxed mb-2">
+            Tự chọn giờ chạy ca sáng/tối, chỉnh giây nghỉ chính xác và độ lệch ngẫu nhiên.
+          </p>
+          <span className="inline-block px-2 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-bold">
+            {showAdvanced ? "Đang Mở Cấu Hình" : "Bấm Để Mở Cài Đặt"}
+          </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4">
-        {/* Left Column: 2 Shift Schedule (6 cols) */}
-        <div className="lg:col-span-6 space-y-3">
-          <div className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-indigo-600" />
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900">
-                  Khung Giờ 2 Ca / Ngày
-                </h3>
+      {/* Advanced Settings Drawer (Optional) */}
+      {showAdvanced && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 animate-in fade-in duration-150">
+          {/* Left Column: 2 Shift Schedule (6 cols) */}
+          <div className="lg:col-span-6 space-y-3">
+            <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-indigo-600" />
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                    Khung Giờ 2 Ca Tự Động / Ngày
+                  </h3>
+                </div>
+                <span className="text-[11px] text-blue-600 font-bold">Hẹn Giờ Tự Chạy</span>
               </div>
-              <span className="text-[11px] text-blue-600 font-bold">Tần suất tối ưu</span>
-            </div>
 
-            {/* Shift 1: Morning */}
-            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">☀️</span>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">Ca Sáng (Giờ Làm Việc)</h4>
-                    <p className="text-[10px] text-slate-500">Tiếp cận khách hàng đầu ngày</p>
+              {/* Shift 1: Morning */}
+              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">☀️</span>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">Ca Sáng</h4>
+                      <p className="text-[10px] text-slate-500">Tiếp cận khách hàng đầu ngày</p>
+                    </div>
                   </div>
+
+                  <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={config.activeShifts.morning}
+                      onChange={(e) =>
+                        setConfig((prev) => ({
+                          ...prev,
+                          activeShifts: { ...prev.activeShifts, morning: e.target.checked },
+                        }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-8 h-4 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
                 </div>
 
-                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 text-xs">
+                  <span className="text-slate-600 text-[11px]">Giờ bắt đầu:</span>
                   <input
-                    type="checkbox"
-                    checked={config.activeShifts.morning}
+                    type="time"
+                    value={config.morningShiftTime}
                     onChange={(e) =>
-                      setConfig((prev) => ({
-                        ...prev,
-                        activeShifts: { ...prev.activeShifts, morning: e.target.checked },
-                      }))
+                      setConfig((prev) => ({ ...prev, morningShiftTime: e.target.value }))
                     }
-                    className="sr-only peer"
+                    className="bg-white border border-slate-300 rounded-md px-2 py-0.5 text-slate-900 font-mono text-xs font-semibold"
                   />
-                  <div className="w-8 h-4 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 text-xs">
-                <span className="text-slate-600 text-[11px]">Giờ bắt đầu:</span>
-                <input
-                  type="time"
-                  value={config.morningShiftTime}
-                  onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, morningShiftTime: e.target.value }))
-                  }
-                  className="bg-white border border-slate-300 rounded-md px-2 py-0.5 text-slate-900 font-mono text-xs font-semibold"
-                />
-              </div>
-            </div>
-
-            {/* Shift 2: Evening */}
-            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">🌙</span>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">Ca Tối (Giờ Vàng)</h4>
-                    <p className="text-[10px] text-slate-500">Khung giờ lướt Facebook cao điểm</p>
+              {/* Shift 2: Evening */}
+              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🌙</span>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">Ca Tối (Giờ Vàng)</h4>
+                      <p className="text-[10px] text-slate-500">Khung giờ lướt Facebook cao điểm</p>
+                    </div>
                   </div>
+
+                  <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={config.activeShifts.evening}
+                      onChange={(e) =>
+                        setConfig((prev) => ({
+                          ...prev,
+                          activeShifts: { ...prev.activeShifts, evening: e.target.checked },
+                        }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-8 h-4 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
                 </div>
 
-                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 text-xs">
+                  <span className="text-slate-600 text-[11px]">Giờ bắt đầu:</span>
                   <input
-                    type="checkbox"
-                    checked={config.activeShifts.evening}
+                    type="time"
+                    value={config.eveningShiftTime}
                     onChange={(e) =>
-                      setConfig((prev) => ({
-                        ...prev,
-                        activeShifts: { ...prev.activeShifts, evening: e.target.checked },
-                      }))
+                      setConfig((prev) => ({ ...prev, eveningShiftTime: e.target.value }))
                     }
-                    className="sr-only peer"
+                    className="bg-white border border-slate-300 rounded-md px-2 py-0.5 text-slate-900 font-mono text-xs font-semibold"
                   />
-                  <div className="w-8 h-4 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
+                </div>
               </div>
-
-              <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 text-xs">
-                <span className="text-slate-600 text-[11px]">Giờ bắt đầu:</span>
-                <input
-                  type="time"
-                  value={config.eveningShiftTime}
-                  onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, eveningShiftTime: e.target.value }))
-                  }
-                  className="bg-white border border-slate-300 rounded-md px-2 py-0.5 text-slate-900 font-mono text-xs font-semibold"
-                />
-              </div>
-            </div>
-
-            {/* Random Offset */}
-            <div className="pt-2 border-t border-slate-100">
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-slate-700 font-semibold text-[11px]">
-                  Độ lệch giờ ngẫu nhiên (Jitter):
-                </span>
-                <span className="font-mono text-blue-700 font-bold text-[11px]">
-                  ± {config.randomOffsetMinutes} phút
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={30}
-                step={5}
-                value={config.randomOffsetMinutes}
-                onChange={(e) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    randomOffsetMinutes: parseInt(e.target.value),
-                  }))
-                }
-                className="w-full accent-blue-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
-              />
-              <p className="text-[10px] text-slate-500 mt-1">
-                Ví dụ hẹn 08:30 thì bot sẽ kích hoạt ngẫu nhiên giữa 08:15 – 08:45 như người thật.
-              </p>
             </div>
           </div>
-        </div>
 
-        {/* Right Column: Delay between groups & Anti-Checkpoint (6 cols) */}
-        <div className="lg:col-span-6 space-y-3">
-          <div className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900">
-                  Thời Gian Nghỉ Giữa Các Nhóm
-                </h3>
-              </div>
-              <span className="text-[10px] px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-bold">
-                Khuyến nghị: 4–8 phút
-              </span>
-            </div>
-
-            {/* Delay Range Slider */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-700 font-semibold text-[11px]">Khoảng nghỉ ngẫu nhiên:</span>
+          {/* Right Column: Custom Delay Sliders (6 cols) */}
+          <div className="lg:col-span-6 space-y-3">
+            <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-slate-200 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                    Khoảng Nghỉ Giữa Các Nhóm
+                  </h3>
+                </div>
                 <span className="font-mono text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-xs">
-                  {Math.round(config.minDelaySeconds / 60)} phút – {Math.round(config.maxDelaySeconds / 60)} phút
+                  {Math.round(config.minDelaySeconds / 60)}p – {Math.round(config.maxDelaySeconds / 60)}p
                 </span>
               </div>
 
               {/* Slider for Min */}
               <div>
-                <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
-                  <span>Nghỉ tối thiểu: {Math.round(config.minDelaySeconds / 60)} phút ({config.minDelaySeconds}s)</span>
+                <div className="flex justify-between text-[11px] text-slate-600 mb-1">
+                  <span>Nghỉ tối thiểu: <strong>{Math.round(config.minDelaySeconds / 60)} phút</strong> ({config.minDelaySeconds}s)</span>
                 </div>
                 <input
                   type="range"
-                  min={60}
+                  min={30}
                   max={360}
                   step={30}
                   value={config.minDelaySeconds}
@@ -236,21 +338,21 @@ export const ScheduleConfigPanel: React.FC<ScheduleConfigPanelProps> = ({
                     setConfig((prev) => ({
                       ...prev,
                       minDelaySeconds: val,
-                      maxDelaySeconds: Math.max(val + 60, prev.maxDelaySeconds),
+                      maxDelaySeconds: Math.max(val + 30, prev.maxDelaySeconds),
                     }));
                   }}
-                  className="w-full accent-emerald-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+                  className="w-full accent-emerald-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
                 />
               </div>
 
               {/* Slider for Max */}
               <div>
-                <div className="flex justify-between text-[10px] text-slate-500 mb-0.5">
-                  <span>Nghỉ tối đa: {Math.round(config.maxDelaySeconds / 60)} phút ({config.maxDelaySeconds}s)</span>
+                <div className="flex justify-between text-[11px] text-slate-600 mb-1">
+                  <span>Nghỉ tối đa: <strong>{Math.round(config.maxDelaySeconds / 60)} phút</strong> ({config.maxDelaySeconds}s)</span>
                 </div>
                 <input
                   type="range"
-                  min={180}
+                  min={60}
                   max={600}
                   step={30}
                   value={config.maxDelaySeconds}
@@ -260,76 +362,31 @@ export const ScheduleConfigPanel: React.FC<ScheduleConfigPanelProps> = ({
                       maxDelaySeconds: Math.max(prev.minDelaySeconds + 30, parseInt(e.target.value)),
                     }))
                   }
-                  className="w-full accent-emerald-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+                  className="w-full accent-emerald-600 cursor-pointer h-2 bg-slate-200 rounded-lg"
                 />
               </div>
-
-              <div className="p-2 rounded-lg bg-emerald-50/70 border border-emerald-200 text-[10px] text-emerald-800">
-                ⭐ <strong>Lưu ý quan trọng:</strong> Tuyệt đối không đăng liên tục từng phút. Khoảng cách 4–8 phút là tiêu chuẩn an toàn giúp nick hoạt động ổn định quanh năm.
-              </div>
-            </div>
-
-            {/* Anti-detection toggles */}
-            <div className="pt-2 border-t border-slate-100 space-y-1.5">
-              <label className="flex items-center justify-between cursor-pointer p-1.5 rounded-lg hover:bg-slate-50">
-                <div className="min-w-0 pr-2">
-                  <span className="text-xs font-bold text-slate-800 block">
-                    Cuộn bảng tin mô phỏng người thật
-                  </span>
-                  <span className="text-[10px] text-slate-500 block truncate">
-                    Tự cuộn xem 2-3 bài viết khác của nhóm trước khi bấm nút đăng
-                  </span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={config.autoScrollBeforePost}
-                  onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, autoScrollBeforePost: e.target.checked }))
-                  }
-                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 flex-shrink-0"
-                />
-              </label>
-
-              <label className="flex items-center justify-between cursor-pointer p-1.5 rounded-lg hover:bg-slate-50">
-                <div className="min-w-0 pr-2">
-                  <span className="text-xs font-bold text-slate-800 block">
-                    Gõ phím ngẫu nhiên (Human Typing Simulation)
-                  </span>
-                  <span className="text-[10px] text-slate-500 block truncate">
-                    Tốc độ gõ 60–160ms/ký tự, chống paste clipboard hàng loạt
-                  </span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={config.stealthModeEnabled}
-                  onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, stealthModeEnabled: e.target.checked }))
-                  }
-                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 flex-shrink-0"
-                />
-              </label>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Campaign Duration Estimate Summary */}
-      <div className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
-        <div className="text-xs text-slate-700">
-          Ước tính thời gian chạy 1 ca:{" "}
-          <strong className="text-blue-700 font-mono text-xs">
-            ~{totalMinutes} phút ({Math.round(totalMinutes / 60 * 10) / 10} giờ)
-          </strong>{" "}
-          cho <strong className="text-slate-900">{selectedGroupCount} nhóm mục tiêu</strong>.
+      {/* Overview Statistics Footer */}
+      <div className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+        <div className="text-slate-600 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <span>
+            Đang sẵn sàng cho <strong>{selectedGroupCount} nhóm</strong> • Ước tính thời gian chạy:{" "}
+            <strong className="text-blue-700 font-mono">~{totalMinutes} phút</strong>
+          </span>
         </div>
 
         <button
           disabled={engineRunning || selectedGroupCount === 0}
           onClick={() => onStartEngine("full")}
-          className="w-full sm:w-auto px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5"
+          className="w-full sm:w-auto px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
         >
           <Play className="w-3.5 h-3.5 fill-white" />
-          <span>Kích Hoạt Ca Ngay</span>
+          <span>Bấm Bắt Đầu Ngay</span>
         </button>
       </div>
     </div>
