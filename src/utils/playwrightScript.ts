@@ -225,74 +225,190 @@ runAutoPoster().catch(console.error);
 `;
 }
 
-export function generateWindowsBatchFile(): string {
+export function generateWindowsBatchFile(
+  groups?: FacebookGroup[],
+  spintax?: string,
+  config?: ScheduleConfig,
+  activeProfile?: FacebookProfile
+): string {
+  // If params are passed, embed the script directly as Base64 so user only needs 1 file
+  let base64Payload = "";
+  if (groups && spintax && config) {
+    const fullScript = generatePlaywrightScript(groups, spintax, config, activeProfile);
+    // Convert to UTF-8 Base64
+    const utf8Bytes = new TextEncoder().encode(fullScript);
+    let binary = "";
+    for (let i = 0; i < utf8Bytes.length; i++) {
+      binary += String.fromCharCode(utf8Bytes[i]);
+    }
+    base64Payload = btoa(binary);
+  }
+
   return `@echo off
-chcp 65001 >nul
-title FB ĐẨY BÀI - TỰ ĐỘNG ĐĂNG NHÓM FACEBOOK
-color 0b
+setlocal EnableDelayedExpansion
+title FB AUTO POST - TU DONG DANG NHOM FACEBOOK
+cls
 
+REM ===================================================================
+REM   FB AUTO POST - CONG CU TU DONG DANG BAI FACEBOOK TREN CHROME THAT
+REM ===================================================================
 echo ===================================================================
-echo   🚀 FB ĐẨY BÀI - CÔNG CỤ TỰ ĐỘNG ĐĂNG BÀI FACEBOOK TRÊN CHROME THẬT
+echo   FB AUTO POST - CONG CU TU DONG DANG BAI FACEBOOK TREN CHROME
 echo ===================================================================
 echo.
 
-:: 1. Kiem tra moi truong Node.js
+REM 1. Tao file script fb_auto_post.js tu dong
+${
+  base64Payload
+    ? `echo [*] Dang tao file script tu dong hoa...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$b64 = '${base64Payload}'; $bytes = [System.Convert]::FromBase64String($b64); $js = [System.Text.Encoding]::UTF8.GetString($bytes); [System.IO.File]::WriteAllText('fb_auto_post.js', $js, [System.Text.Encoding]::UTF8)"
+`
+    : `if not exist fb_auto_post.js (
+    echo [!] Khong tim thay file fb_auto_post.js trong cung thu muc!
+    echo Vui long dam bao ban da tai file fb_auto_post.js tu web app.
+    pause
+    exit /b 1
+)`
+}
+
+REM 2. Kiem tra moi truong Node.js
+set "NODE_CMD="
 where node >nul 2>nul
-if %errorlevel% neq 0 (
-    color 0c
-    echo [!] CHUA TIM THAY NODE.JS TREN MAY TINH CUA BAN!
+if %errorlevel% equ 0 (
+    set "NODE_CMD=node"
+    echo [OK] Da phat hien Node.js tren he thong.
+) else (
+    if exist node.exe (
+        set "NODE_CMD=node.exe"
+        echo [OK] Da tim thay node.exe portable.
+    ) else (
+        echo [*] May tinh cua ban chua co Node.js.
+        echo [*] Dang tu dong tai moi truong chay portable (khoang 5-10 giay)...
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $wc = New-Object System.Net.WebClient; try { $wc.DownloadFile('https://nodejs.org/dist/v20.11.1/win-x64/node.exe', 'node.exe'); Write-Host '[OK] Da tai thanh cong node.exe!' } catch { Write-Host '[!] Khong the tai tu dong node.exe: ' $_.Exception.Message }"
+        if exist node.exe (
+            set "NODE_CMD=node.exe"
+        )
+    )
+)
+
+if "%NODE_CMD%"=="" (
     echo.
-    echo De chay duoc cong cu tu dong hoa, ban chi can cai dat Node.js mot lan:
-    echo 1. Tai ban LTS mien phi tai: https://nodejs.org/
-    echo 2. Cai dat (bam Next lien tuc)
-    echo 3. Nhap dup chuot lai vao file nay de chay!
-    echo.
-    echo Dang tu dong mo trang tai Node.js cho ban...
+    echo ===================================================================
+    echo [!] CHUA TIM THAY NODE.JS TREN MAY TINH!
+    echo Vui long cai dat Node.js mien phi theo 2 buoc:
+    echo 1. Trinh duyet dang mo trang tai: https://nodejs.org/
+    echo 2. Tai ban LTS, cai dat va chay lai file nay!
+    echo ===================================================================
     start https://nodejs.org/
-    echo ===================================================================
     pause
-    exit /b
+    exit /b 1
 )
 
-echo [✓] Da phat hien Node.js tren may:
-node -v
-echo.
-
-:: 2. Kiem tra va tu dong cai dat thu vien playwright-core neu chua co
+REM 3. Kiem tra thu vien playwright-core
 if not exist node_modules\\playwright-core (
-    echo [*] Dang chuan bi moi truong va thu vien dieu khien Chrome (Playwright)...
-    echo Qua trinh nay chi tai mot lan dau (khoang 10-20 giay)...
+    echo [*] Dang chuan bi thu vien dieu khien Chrome (Playwright)...
+    echo Qua trinh nay chi chay mot lan duy nhat (khoang 10-15 giay)...
     call npm init -y >nul 2>nul
-    call npm install playwright-core >nul
-    echo [✓] Da cai dat xong thu vien tu dong hoa!
+    call npm install playwright-core >nul 2>nul
+    echo [OK] Da chuan bi xong thu vien!
     echo.
 )
 
-:: 3. Kiem tra file script fb_auto_post.js
-if not exist fb_auto_post.js (
-    color 0c
-    echo [!] KHONG TIM THAY FILE 'fb_auto_post.js' TRONG CUNG THU MUC!
-    echo.
-    echo Vui long dam bao ban da tai file 'fb_auto_post.js' tu web app
-    echo va de chung cung mot thu muc (vi du: ngoai Desktop hoac mot thu muc bat ky) voi file BAT nay.
-    echo ===================================================================
-    pause
-    exit /b
-)
-
-:: 4. Khoi chay script tu dong hoa
-echo [*] DANG KHOI CHAY GOOGLE CHROME THAT DE DANG BAI...
-echo [!] Ban co the thu nho cua so nay de cong cu tu chay ngam theo lich trinh.
+REM 4. Khoi chay tien trinh dang bai tren Chrome
+echo.
+echo [*] DANG KHOI CHAY GOOGLE CHROME DE BAT DAU DANG BAI...
+echo [!] Ban co the thu nho cua so nay de bot tu dong chay ngam.
 echo -------------------------------------------------------------------
-node fb_auto_post.js
+%NODE_CMD% fb_auto_post.js
 
 echo.
 echo ===================================================================
-echo [✓] TIEN TRINH DANG BAI DA KET THUC HOAC TAM DUNG.
-echo File bao cao ket qua: post_results.json
+echo [OK] TIEN TRINH DANG BAI DA HOAN TAT HOAC TAM DUNG.
+echo Bao cao ket qua duoc luu tai file: post_results.json
 echo ===================================================================
 pause
 `;
+}
+
+export function generateBookmarkletCode(
+  groups: FacebookGroup[],
+  spintax: string,
+  config: ScheduleConfig
+): string {
+  const activeGroups = groups.filter((g) => g.isActive);
+  const queueData = JSON.stringify(
+    activeGroups.map((g) => ({ id: g.id, name: g.name, url: g.url }))
+  );
+  const spintaxEscaped = JSON.stringify(spintax);
+
+  return `javascript:(function(){
+  if(window.__FB_AUTO_RUNNING){ alert('FB Auto Post đang chạy trên tab này!'); return; }
+  window.__FB_AUTO_RUNNING = true;
+  
+  const groups = ${queueData};
+  const spintax = ${spintaxEscaped};
+  const minDelay = ${config.minDelaySeconds};
+  const maxDelay = ${config.maxDelaySeconds};
+  
+  function resolveSpin(text){
+    let spin = text;
+    const regex = /\\{([^{}]+)\\}/;
+    while (regex.test(spin)) {
+      spin = spin.replace(regex, (_, choicesStr) => {
+        const choices = choicesStr.split('|');
+        return choices[Math.floor(Math.random() * choices.length)];
+      });
+    }
+    return spin;
+  }
+  
+  const banner = document.createElement('div');
+  banner.id = 'fb-auto-banner';
+  banner.style = 'position:fixed;top:16px;right:16px;z-index:999999;background:#1e293b;color:#fff;padding:16px;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.5);font-family:sans-serif;font-size:13px;max-width:340px;border:2px solid #3b82f6;';
+  banner.innerHTML = '<div style="font-weight:bold;color:#60a5fa;margin-bottom:6px;display:flex;justify-content:space-between;"><span>🚀 FB Tự Động Đăng Bài</span><button id="fb-auto-close" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-weight:bold;">✕</button></div><div id="fb-auto-status" style="line-height:1.4;">Đã tải ' + groups.length + ' nhóm. Đang chuẩn bị bài đăng...</div><div id="fb-auto-progress" style="margin-top:8px;font-size:11px;color:#cbd5e1;"></div>';
+  document.body.appendChild(banner);
+  
+  document.getElementById('fb-auto-close').onclick = function(){
+    banner.remove();
+    window.__FB_AUTO_RUNNING = false;
+  };
+
+  let currentIndex = 0;
+  
+  function processNextGroup(){
+    if(currentIndex >= groups.length){
+      document.getElementById('fb-auto-status').innerHTML = '<span style="color:#4ade80;font-weight:bold;">🎉 ĐÃ HOÀN TẤT ĐĂNG TẤT CẢ ' + groups.length + ' NHÓM!</span>';
+      return;
+    }
+    const g = groups[currentIndex];
+    const postContent = resolveSpin(spintax);
+    document.getElementById('fb-auto-status').innerHTML = '<b>[' + (currentIndex + 1) + '/' + groups.length + ']</b> Đang đăng vào nhóm:<br><span style="color:#93c5fd;">' + g.name + '</span>';
+    document.getElementById('fb-auto-progress').innerText = 'Nội dung: "' + postContent.substring(0, 50) + '..."';
+    
+    // Copy content to clipboard automatically
+    navigator.clipboard.writeText(postContent);
+    
+    // Open group
+    window.open(g.url, '_blank');
+    currentIndex++;
+    
+    const waitTime = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+    let remaining = waitTime;
+    const timer = setInterval(() => {
+      remaining--;
+      if(remaining <= 0){
+        clearInterval(timer);
+        processNextGroup();
+      } else {
+        const min = Math.floor(remaining / 60);
+        const sec = remaining % 60;
+        document.getElementById('fb-auto-progress').innerText = '⏳ Nghỉ chống Checkpoint: ' + (min > 0 ? min + 'p ' : '') + sec + 's...';
+      }
+    }, 1000);
+  }
+  
+  processNextGroup();
+})();`;
 }
 
 export function generateMacLinuxScript(): string {
@@ -317,4 +433,5 @@ echo "[*] Đang chạy script tự động hóa..."
 node fb_auto_post.js
 `;
 }
+
 

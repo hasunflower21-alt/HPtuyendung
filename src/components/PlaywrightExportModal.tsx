@@ -1,6 +1,24 @@
 import React, { useState } from "react";
-import { Terminal, Copy, Download, Check, User, Info, AlertTriangle, Play, FileCode, CheckCircle2 } from "lucide-react";
-import { generatePlaywrightScript, generateWindowsBatchFile } from "../utils/playwrightScript";
+import {
+  Terminal,
+  Copy,
+  Download,
+  Check,
+  User,
+  Info,
+  AlertTriangle,
+  Play,
+  FileCode,
+  CheckCircle2,
+  Bookmark,
+  ExternalLink,
+  Sparkles,
+} from "lucide-react";
+import {
+  generatePlaywrightScript,
+  generateWindowsBatchFile,
+  generateBookmarkletCode,
+} from "../utils/playwrightScript";
 import { FacebookGroup, ScheduleConfig, FacebookProfile } from "../types";
 
 interface PlaywrightExportModalProps {
@@ -25,7 +43,7 @@ export const PlaywrightExportModal: React.FC<PlaywrightExportModalProps> = ({
   const [selectedProfileId, setSelectedProfileId] = useState<string>(
     activeProfileId || (profiles[0]?.id ?? "default")
   );
-  const [activeCodeTab, setActiveCodeTab] = useState<"bat" | "js">("bat");
+  const [activeCodeTab, setActiveCodeTab] = useState<"bat" | "bookmarklet" | "js">("bat");
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
@@ -34,10 +52,13 @@ export const PlaywrightExportModal: React.FC<PlaywrightExportModalProps> = ({
     profiles.find((p) => p.id === selectedProfileId) || profiles[0];
 
   const scriptCode = generatePlaywrightScript(groups, spintax, config, currentProfile);
-  const batCode = generateWindowsBatchFile();
+  const batCode = generateWindowsBatchFile(groups, spintax, config, currentProfile);
+  const bookmarkletCode = generateBookmarkletCode(groups, spintax, config);
 
   const handleCopy = () => {
-    const textToCopy = activeCodeTab === "bat" ? batCode : scriptCode;
+    let textToCopy = batCode;
+    if (activeCodeTab === "js") textToCopy = scriptCode;
+    if (activeCodeTab === "bookmarklet") textToCopy = bookmarkletCode;
     navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -67,13 +88,6 @@ export const PlaywrightExportModal: React.FC<PlaywrightExportModalProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadAll = () => {
-    handleDownloadBAT();
-    setTimeout(() => {
-      handleDownloadJS();
-    }, 400);
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs">
       <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150">
@@ -85,48 +99,44 @@ export const PlaywrightExportModal: React.FC<PlaywrightExportModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                Tải Script Tự Động Hóa & File Chạy 1-Click Cho Windows
+                Tải File Chạy Tự Động 1-Click Cho Windows & Trình Duyệt
               </h3>
               <p className="text-xs text-slate-500">
-                Tự động mở Google Chrome thật để đăng bài theo lịch mà không bị Facebook khóa nick
+                Đã sửa triệt để lỗi ký tự và tích hợp tự động toàn bộ trong 1 file duy nhất
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 text-xs font-bold p-1.5 rounded-lg"
+            className="text-slate-400 hover:text-slate-700 text-xs font-bold p-1.5 rounded-lg cursor-pointer"
           >
             ✕ Đóng
           </button>
         </div>
 
-        {/* Windows Script Host Error Callout & Quick Fix */}
-        <div className="p-3.5 bg-amber-50 border-b border-amber-200 flex flex-col sm:flex-row items-start gap-3">
-          <div className="p-1.5 rounded-lg bg-amber-200/80 text-amber-900 flex-shrink-0 mt-0.5">
-            <AlertTriangle className="w-5 h-5 text-amber-800" />
+        {/* 1-Click Guide Callout */}
+        <div className="p-3.5 bg-emerald-50 border-b border-emerald-200 flex flex-col sm:flex-row items-start gap-3">
+          <div className="p-1.5 rounded-lg bg-emerald-200 text-emerald-900 flex-shrink-0 mt-0.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-700" />
           </div>
           <div className="text-xs space-y-1 flex-1">
-            <h4 className="font-bold text-amber-950 flex items-center gap-1.5">
-              ⚠️ Nếu máy bạn báo lỗi "Windows Script Host - Syntax error" khi nhấp vào file .js:
+            <h4 className="font-bold text-emerald-950 flex items-center gap-1.5">
+              ✅ Đã Nâng Cấp Bản Mới Nhất: Tự Động Trọn Gói Trong 1 File Duy Nhất (.BAT)
             </h4>
-            <p className="text-amber-900 leading-relaxed">
-              Nguyên nhân: Windows mặc định cố mở file <code className="font-mono bg-white px-1.5 py-0.2 rounded border border-amber-300 font-bold">.js</code> bằng trình đọc cổ xưa của Windows thay vì Node.js.
+            <p className="text-emerald-900 leading-relaxed">
+              Bạn chỉ cần bấm nút <strong>"Tải File .BAT Trọn Gói (1-Click)"</strong> ở dưới, sau đó <strong>nhấp đúp chuột vào file vừa tải</strong>:
             </p>
-            <div className="p-2 bg-white/90 rounded-lg border border-amber-300 font-medium text-amber-950 space-y-1 mt-1">
-              <div className="flex items-center gap-1.5 font-bold text-emerald-800">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Cách khắc phục cực dễ:</span>
-              </div>
-              <ol className="list-decimal list-inside space-y-0.5 text-[11px] text-slate-700 ml-1">
-                <li>Bấm nút <strong>"Tải File CHAY_TU_DONG_WINDOWS.bat"</strong> và <strong>"Tải File fb_auto_post.js"</strong> về để chung một thư mục.</li>
-                <li>Chỉ cần <strong>nhấp đúp chuột vào file CHAY_TU_DONG_WINDOWS.bat</strong> là Chrome sẽ tự động khởi động và đăng bài!</li>
-                <li>(Nếu máy tính chưa có Node.js, file .bat sẽ tự mở trang <code className="font-mono text-blue-600">nodejs.org</code> để bạn tải bản cài đặt miễn phí).</li>
-              </ol>
+            <div className="p-2 bg-white/90 rounded-lg border border-emerald-300 font-medium text-slate-800 space-y-1 mt-1">
+              <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-700 ml-1">
+                <li><strong>Tự động tạo mã script</strong> mà không cần tải thêm file .js rời.</li>
+                <li><strong>Tự động tải môi trường chạy (Node.js)</strong> nếu máy bạn chưa cài đặt sẵn.</li>
+                <li><strong>Tự động mở Google Chrome</strong> đã đăng nhập Facebook và đăng lần lượt toàn bộ nhóm theo lịch.</li>
+              </ul>
             </div>
           </div>
         </div>
 
-        {/* Profile Tagging Selector Banner */}
+        {/* Profile Tagging Selector Banner & Tabs */}
         <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
             <User className="w-4 h-4 text-blue-600 flex-shrink-0" />
@@ -151,7 +161,7 @@ export const PlaywrightExportModal: React.FC<PlaywrightExportModalProps> = ({
           <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-xs font-semibold">
             <button
               onClick={() => setActiveCodeTab("bat")}
-              className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeCodeTab === "bat"
                   ? "bg-white text-emerald-800 shadow-2xs font-bold"
                   : "text-slate-600 hover:text-slate-900"
@@ -161,8 +171,19 @@ export const PlaywrightExportModal: React.FC<PlaywrightExportModalProps> = ({
               <span>CHAY_TU_DONG_WINDOWS.bat</span>
             </button>
             <button
+              onClick={() => setActiveCodeTab("bookmarklet")}
+              className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeCodeTab === "bookmarklet"
+                  ? "bg-white text-indigo-800 shadow-2xs font-bold"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Bookmark className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Dấu Trang Chrome (1-Click)</span>
+            </button>
+            <button
               onClick={() => setActiveCodeTab("js")}
-              className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeCodeTab === "js"
                   ? "bg-white text-blue-800 shadow-2xs font-bold"
                   : "text-slate-600 hover:text-slate-900"
@@ -176,9 +197,28 @@ export const PlaywrightExportModal: React.FC<PlaywrightExportModalProps> = ({
 
         {/* Code editor view */}
         <div className="flex-1 p-3.5 overflow-y-auto bg-slate-950 text-slate-200 font-mono text-xs leading-relaxed max-h-[380px]">
-          <pre className="whitespace-pre overflow-x-auto selection:bg-blue-600 selection:text-white">
-            {activeCodeTab === "bat" ? batCode : scriptCode}
-          </pre>
+          {activeCodeTab === "bookmarklet" ? (
+            <div className="space-y-3 font-sans text-xs text-slate-300">
+              <div className="p-3 bg-indigo-950/60 rounded-xl border border-indigo-500/40 space-y-2">
+                <div className="font-bold text-indigo-300 flex items-center gap-1.5 text-sm">
+                  <Bookmark className="w-4 h-4 text-indigo-400" />
+                  <span>Cách Dùng Dấu Trang Chrome (0 Cần Cài Đặt):</span>
+                </div>
+                <ol className="list-decimal list-inside space-y-1.5 text-slate-300 leading-relaxed">
+                  <li>Bấm nút <strong>"Sao Chép Mã"</strong> ở dưới.</li>
+                  <li>Trên thanh Dấu trang của Chrome (nhấn <code>Ctrl + Shift + O</code>), tạo 1 Bookmark mới với tên <strong>"⚡ Tự Đăng FB"</strong> và dán mã vừa copy vào phần <strong>URL</strong>.</li>
+                  <li>Mở tab Facebook của bạn và nhấn vào Bookmark <strong>"⚡ Tự Đăng FB"</strong> ➔ Hệ thống sẽ tự động đăng bài theo hàng đợi!</li>
+                </ol>
+              </div>
+              <pre className="p-3 bg-slate-900 rounded-lg text-[11px] font-mono text-indigo-200 overflow-x-auto whitespace-pre-wrap break-all">
+                {bookmarkletCode}
+              </pre>
+            </div>
+          ) : (
+            <pre className="whitespace-pre overflow-x-auto selection:bg-blue-600 selection:text-white">
+              {activeCodeTab === "bat" ? batCode : scriptCode}
+            </pre>
+          )}
         </div>
 
         {/* Modal Footer */}
@@ -191,7 +231,7 @@ export const PlaywrightExportModal: React.FC<PlaywrightExportModalProps> = ({
           <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
             <button
               onClick={handleCopy}
-              className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+              className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
             >
               {copied ? (
                 <>
@@ -208,28 +248,11 @@ export const PlaywrightExportModal: React.FC<PlaywrightExportModalProps> = ({
 
             <button
               onClick={handleDownloadBAT}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-              title="Tải file .BAT để nhấp đúp chạy ngay trên Windows mà không cần gõ lệnh"
-            >
-              <Play className="w-3.5 h-3.5" />
-              <span>Tải File .BAT (1-Click Windows)</span>
-            </button>
-
-            <button
-              onClick={handleDownloadJS}
-              className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Tải fb_auto_post.js</span>
-            </button>
-
-            <button
-              onClick={handleDownloadAll}
-              className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-              title="Tải cả file .BAT và file .JS về máy cùng lúc"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+              title="Tải 1 file .BAT duy nhất trọn gói - Tự động toàn bộ khi nhấp đúp"
             >
               <Download className="w-4 h-4" />
-              <span>Tải Trọn Bộ (2 File)</span>
+              <span>Tải File .BAT Trọn Gói (1-Click)</span>
             </button>
           </div>
         </div>
@@ -237,3 +260,4 @@ export const PlaywrightExportModal: React.FC<PlaywrightExportModalProps> = ({
     </div>
   );
 };
+
