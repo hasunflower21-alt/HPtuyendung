@@ -44,10 +44,28 @@ async function startServer() {
 
       const cleanInput = tokenOrCookie.trim();
 
-      // Check if input is a Graph API Access Token (usually starts with EAA...)
-      if (cleanInput.startsWith("EAA") || cleanInput.length > 50) {
+      // 1. Check if input is Cookie containing c_user
+      const cUserMatch = cleanInput.match(/c_user=(\d+)/);
+      const isCookie = cUserMatch || cleanInput.includes("xs=") || cleanInput.includes("datr=") || cleanInput.includes("sb=");
+
+      if (cUserMatch) {
+        const fbUid = cUserMatch[1];
+        return res.json({
+          success: true,
+          user: {
+            id: fbUid,
+            name: `Facebook User (${fbUid})`,
+            avatarUrl: `https://graph.facebook.com/${fbUid}/picture?type=large`,
+          },
+          groups: [],
+          message: `Đã nhận diện Cookie hợp lệ cho UID: ${fbUid}!`,
+        });
+      }
+
+      // 2. Check if input is a Graph API Access Token (must start with EAA)
+      if (cleanInput.startsWith("EAA")) {
         const userRes = await fetch(
-          `https://graph.facebook.com/v19.0/me?fields=id,name,picture.width(150).height(150)&access_token=${cleanInput}`
+          `https://graph.facebook.com/v19.0/me?fields=id,name,picture.width(150).height(150)&access_token=${encodeURIComponent(cleanInput)}`
         );
         const userData = (await userRes.json()) as any;
 
@@ -56,7 +74,7 @@ async function startServer() {
             success: false,
             error:
               userData.error.message ||
-              "Token Facebook không hợp lệ hoặc đã hết hạn. Vui lòng lấy Token mới.",
+              "Token Facebook không hợp lệ hoặc đã hết hạn. Vui lòng lấy Token mới (bắt đầu bằng EAA...).",
           });
         }
 
@@ -64,7 +82,7 @@ async function startServer() {
         let userGroups: any[] = [];
         try {
           const groupRes = await fetch(
-            `https://graph.facebook.com/v19.0/me/groups?fields=id,name,privacy,member_count&limit=100&access_token=${cleanInput}`
+            `https://graph.facebook.com/v19.0/me/groups?fields=id,name,privacy,member_count&limit=100&access_token=${encodeURIComponent(cleanInput)}`
           );
           const groupData = (await groupRes.json()) as any;
           if (groupData.data && Array.isArray(groupData.data)) {
@@ -94,22 +112,6 @@ async function startServer() {
           },
           groups: userGroups,
           message: `Đã kết nối thành công tài khoản "${userData.name}"!`,
-        });
-      }
-
-      // Check if input is Cookie containing c_user
-      const cUserMatch = cleanInput.match(/c_user=(\d+)/);
-      if (cUserMatch) {
-        const fbUid = cUserMatch[1];
-        return res.json({
-          success: true,
-          user: {
-            id: fbUid,
-            name: `Facebook User (${fbUid})`,
-            avatarUrl: `https://graph.facebook.com/${fbUid}/picture?type=large`,
-          },
-          groups: [],
-          message: `Đã nhận diện Cookie hợp lệ cho UID: ${fbUid}!`,
         });
       }
 

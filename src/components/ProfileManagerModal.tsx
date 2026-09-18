@@ -71,7 +71,8 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
   };
 
   const handleVerifyAccount = async () => {
-    if (!tokenOrCookie.trim()) {
+    const cleanInput = tokenOrCookie.trim();
+    if (!cleanInput) {
       alert("Vui lòng nhập Access Token hoặc Cookie để kiểm tra.");
       return;
     }
@@ -79,16 +80,49 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
     setIsVerifying(true);
     setVerifyMessage(null);
 
+    // Client-side quick check for Facebook Cookie
+    const cUserMatch = cleanInput.match(/c_user=(\d+)/);
+    const hasXs = cleanInput.includes("xs=");
+
+    if (cUserMatch) {
+      const fbUid = cUserMatch[1];
+      const avatarUrl = `https://graph.facebook.com/${fbUid}/picture?type=large`;
+      if (!fbUidOrUsername.trim()) {
+        setFbUidOrUsername(fbUid);
+      }
+      if (!name.trim() || name === "Default") {
+        setName(`FB User (${fbUid.slice(-4)})`);
+      }
+
+      setVerifyMessage({
+        type: "success",
+        text: `Đã nhận diện Cookie hợp lệ (UID: ${fbUid}${hasXs ? ", đã có phiên xác thực xs" : ""})!`,
+        avatarUrl: avatarUrl,
+      });
+      setIsVerifying(false);
+      return;
+    }
+
+    // Graph API Token check
     try {
       const res = await fetch("/api/facebook/check-auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tokenOrCookie: tokenOrCookie.trim() }),
+        body: JSON.stringify({ tokenOrCookie: cleanInput }),
       });
 
-      const data = await res.json();
-      if (data.success && data.user) {
-        if (!name.trim()) {
+      let data: any = null;
+      try {
+        const text = await res.text();
+        if (text) {
+          data = JSON.parse(text);
+        }
+      } catch (parseErr) {
+        console.warn("JSON parse error:", parseErr);
+      }
+
+      if (data && data.success && data.user) {
+        if (!name.trim() || name === "Default") {
           setName(data.user.name);
         }
         if (data.user.id) {
@@ -111,9 +145,12 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
           avatarUrl: data.user.avatarUrl,
         });
       } else {
+        const errorMsg = data?.error || (cleanInput.startsWith("EAA") 
+          ? "Token Facebook không hợp lệ hoặc đã hết hạn. Vui lòng lấy Token mới (bắt đầu bằng EAA...)."
+          : "Không thể xác thực. Đối với Cookie, cần chứa 'c_user=...'. Đối với Token, cần bắt đầu bằng 'EAA...'.");
         setVerifyMessage({
           type: "error",
-          text: data.error || "Không thể xác thực thông tin tài khoản Facebook.",
+          text: errorMsg,
         });
       }
     } catch (e: any) {
