@@ -6,6 +6,7 @@ import { ScheduleConfigPanel } from "./components/ScheduleConfigPanel";
 import { LiveMonitor } from "./components/LiveMonitor";
 import { PlaywrightExportModal } from "./components/PlaywrightExportModal";
 import { SafetyGuideModal } from "./components/SafetyGuideModal";
+import { UserGuideModal } from "./components/UserGuideModal";
 import { BatterySaverOverlay } from "./components/BatterySaverOverlay";
 import { MobileBackgroundModal } from "./components/MobileBackgroundModal";
 import { ProfileManagerModal } from "./components/ProfileManagerModal";
@@ -32,6 +33,10 @@ import {
   enableMobileBackgroundKeepAlive,
   disableMobileBackgroundKeepAlive,
 } from "./utils/backgroundRunner";
+import {
+  saveImagesToDB,
+  loadImagesFromDB,
+} from "./utils/storageDb";
 
 export default function App() {
   // Navigation
@@ -138,11 +143,31 @@ export default function App() {
   // Modals & Mobile Overlays
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+  const [isUserGuideOpen, setIsUserGuideOpen] = useState(false);
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [isBatterySaverOpen, setIsBatterySaverOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isDiagnosticModalOpen, setIsDiagnosticModalOpen] = useState(false);
+
+  // Load images from IndexedDB on startup
+  useEffect(() => {
+    loadImagesFromDB().then((savedImgs) => {
+      if (savedImgs && Array.isArray(savedImgs) && savedImgs.length > 0) {
+        setImages(savedImgs);
+      }
+    });
+  }, []);
+
+  // Sync images to IndexedDB whenever images state changes
+  useEffect(() => {
+    saveImagesToDB(images);
+    try {
+      localStorage.setItem("fb_post_images", JSON.stringify(images.slice(0, 4)));
+    } catch (e) {
+      // IndexedDB handles full storage safely
+    }
+  }, [images]);
 
   // Engine state
   const [engineState, setEngineState] = useState<EngineState>({
@@ -517,6 +542,7 @@ export default function App() {
       <Header
         onOpenScriptModal={() => setIsScriptModalOpen(true)}
         onOpenGuideModal={() => setIsGuideModalOpen(true)}
+        onOpenUserGuide={() => setIsUserGuideOpen(true)}
         onOpenMobileModal={() => setIsMobileModalOpen(true)}
         onOpenProfileModal={() => setIsProfileModalOpen(true)}
         onOpenReportModal={() => setIsReportModalOpen(true)}
@@ -597,6 +623,13 @@ export default function App() {
           <span>FB Đẩy Bài • Hệ Thống Tự Động Hóa Đăng Nhóm Chuẩn Anti-Spam</span>
           <div className="flex items-center gap-3">
             <button
+              onClick={() => setIsUserGuideOpen(true)}
+              className="hover:text-blue-700 font-bold text-blue-600 flex items-center gap-1"
+            >
+              📖 Hướng Dẫn Sử Dụng
+            </button>
+            <span>•</span>
+            <button
               onClick={() => setIsGuideModalOpen(true)}
               className="hover:text-blue-600 underline"
             >
@@ -628,6 +661,15 @@ export default function App() {
       </footer>
 
       {/* Modals */}
+      <UserGuideModal
+        isOpen={isUserGuideOpen}
+        onClose={() => setIsUserGuideOpen(false)}
+        onOpenScriptModal={() => {
+          setIsUserGuideOpen(false);
+          setIsScriptModalOpen(true);
+        }}
+      />
+
       <PlaywrightExportModal
         isOpen={isScriptModalOpen}
         onClose={() => setIsScriptModalOpen(false)}

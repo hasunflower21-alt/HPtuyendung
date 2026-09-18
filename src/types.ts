@@ -90,3 +90,13 @@ export interface EngineState {
   activeProfileName?: string;
   executionMode?: "auto_script" | "assisted_manual" | "simulation";
 }
+
+export interface PostDraft {
+  id: string;
+  title: string;
+  rawContent: string;
+  spintaxContent: string;
+  images: string[];
+  updatedAt: string;
+  isAutoSaved?: boolean;
+}

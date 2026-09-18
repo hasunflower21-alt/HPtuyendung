@@ -18,6 +18,7 @@ import {
 interface HeaderProps {
   onOpenScriptModal: () => void;
   onOpenGuideModal: () => void;
+  onOpenUserGuide?: () => void;
   onOpenMobileModal: () => void;
   onOpenProfileModal: () => void;
   onOpenReportModal: () => void;
@@ -36,6 +37,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   onOpenScriptModal,
   onOpenGuideModal,
+  onOpenUserGuide,
   onOpenMobileModal,
   onOpenProfileModal,
   onOpenReportModal,
@@ -193,6 +195,17 @@ export const Header: React.FC<HeaderProps> = ({
               <Smartphone className="w-3 h-3 text-slate-600" />
               <span className="hidden sm:inline">Chạy Ẩn</span>
             </button>
+
+            {onOpenUserGuide && (
+              <button
+                onClick={onOpenUserGuide}
+                className="px-2 sm:px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] sm:text-xs font-bold flex items-center gap-1 transition-colors whitespace-nowrap shadow-xs"
+                title="Xem hướng dẫn sử dụng chi tiết từng bước cho người mới"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                <span>Hướng Dẫn Sử Dụng</span>
+              </button>
+            )}
 
             <button
               onClick={onOpenScriptModal}
