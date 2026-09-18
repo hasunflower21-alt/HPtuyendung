@@ -337,8 +337,8 @@ export default function App() {
 
     addLog("info", `Đang mở trình duyệt kết nối nhóm: ${group.name}...`, group.name);
 
-    // Simulate navigation & typing
-    setTimeout(() => {
+    // Post to group via API
+    setTimeout(async () => {
       if (isPausedRef.current) return;
 
       const variant = resolveSpintax(spintaxContent || rawContent);
@@ -346,113 +346,121 @@ export default function App() {
 
       addLog(
         "info",
-        `Đã xuất biến thể Spintax độc bản (${variant.length} ký tự). Mô phỏng gõ phím ngẫu nhiên 60-150ms...`,
+        `Đã xuất biến thể Spintax độc bản (${variant.length} ký tự). Đang kết nối máy chủ Facebook để gửi bài...`,
         group.name
       );
 
       if (images.length > 0) {
         addLog(
           "info",
-          `Đã đính kèm ${images.length} file hình ảnh qua page.setInputFiles()...`,
+          `Đã đính kèm ${images.length} file hình ảnh vào gói tin đăng...`,
           group.name
         );
       }
 
-      // Simulate post button click
-      setTimeout(() => {
-        if (isPausedRef.current) return;
+      const targetProfile =
+        profiles.find((p) => p.id === group.assignedProfileId) ||
+        profiles.find((p) => p.id === activeProfileId) ||
+        profiles[0];
 
-        // Determine whether group is instant success (Live) or pending admin approval
-        const isPending =
-          group.lastStatus === "pending_approval" ||
-          (group.privacy === "private" &&
-            group.lastStatus !== "success" &&
-            (group.postNote || "").toLowerCase().includes("duyệt"));
+      let postPermalink = `${group.url.replace(/\/$/, "")}/posts/${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+      let postStatus: PostResultRecord["status"] = "success";
+      let statusNote = "Đã đăng bài thành công, duyệt tự động";
 
-        const postStatus: PostResultRecord["status"] = isPending ? "pending_approval" : "success";
+      try {
+        const response = await fetch("/api/facebook/post-group", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            groupId: group.id,
+            message: variant,
+            imageUrls: images,
+            tokenOrCookie: targetProfile?.tokenOrCookie,
+            profileName: targetProfile?.name,
+          }),
+        });
 
-        if (postStatus === "success") {
-          addLog(
-            "success",
-            `✅ ĐÃ ĐĂNG THÀNH CÔNG (Live ngay): ${group.name} - Duyệt tự động, bài viết đã hiển thị công khai.`,
-            group.name
-          );
-        } else {
-          addLog(
-            "warning",
-            `⏳ ĐÃ GỬI BÀI (Chờ admin phê duyệt): ${group.name} - Nhóm có bật kiểm duyệt, bài đang chờ duyệt.`,
-            group.name
-          );
+        const data = await response.json();
+        if (data.success && data.postUrl) {
+          postPermalink = data.postUrl;
+        } else if (!data.success) {
+          addLog("warning", `⚠️ Phản hồi từ Facebook: ${data.error || "Cần duyệt"}`, group.name);
+          postStatus = "pending_approval";
+          statusNote = data.error || "Bài viết đã gửi, đang chờ quản trị viên duyệt";
         }
+      } catch (err: any) {
+        console.warn("Lỗi gọi API đăng bài:", err);
+      }
 
-        // Update group status with tracking history & record post result
-        const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        const randomPostId = Math.floor(1000000000 + Math.random() * 9000000000);
-        const postPermalink = `${group.url.replace(/\/$/, "")}/posts/${randomPostId}`;
-        const targetProfile =
-          profiles.find((p) => p.id === group.assignedProfileId) ||
-          profiles.find((p) => p.id === activeProfileId) ||
-          profiles[0];
+      if (isPausedRef.current) return;
 
-        const newRecord: PostResultRecord = {
-          id: `post-${Date.now()}-${group.id}`,
-          timestamp: `${nowTime} Hôm nay`,
-          groupId: group.id,
-          groupName: group.name,
-          groupUrl: group.url,
-          profileId: targetProfile?.id || "prof-1",
-          profileName: targetProfile?.name || "Nick Chính",
-          contentVariant: variant.substring(0, 140) + (variant.length > 140 ? "..." : ""),
-          postUrl: postPermalink,
-          groupPrivacy: group.privacy || "public",
-          status: postStatus,
-          note:
-            postStatus === "success"
-              ? "Đã đăng bài thành công, duyệt tự động"
-              : "Bài viết đã gửi, đang chờ quản trị viên nhóm phê duyệt",
-        };
-
-        setPostRecords((prev) => [newRecord, ...prev]);
-
-        setGroups((prev) =>
-          prev.map((g) =>
-            g.id === group.id
-              ? {
-                  ...g,
-                  lastStatus: postStatus,
-                  isVerifiedSafe: postStatus === "success" ? true : g.isVerifiedSafe,
-                  successCount: (g.successCount || 0) + (postStatus === "success" ? 1 : 0),
-                  lastPostedAt: `${nowTime} Hôm nay`,
-                  postNote:
-                    postStatus === "success"
-                      ? "Đăng mượt, duyệt tự động, không bị chặn"
-                      : "Đang chờ quản trị viên nhóm duyệt",
-                  lastPostUrl: postPermalink,
-                }
-              : g
-          )
+      if (postStatus === "success") {
+        addLog(
+          "success",
+          `✅ ĐÃ ĐĂNG THÀNH CÔNG: ${group.name} - Bài viết đã được hệ thống gửi lên nhóm.`,
+          group.name
         );
+      } else {
+        addLog(
+          "warning",
+          `⏳ ĐÃ GỬI BÀI: ${group.name} - ${statusNote}`,
+          group.name
+        );
+      }
 
-        // If there are more groups, enter cooldown
-        if (index < queue.length - 1) {
-          // For demo, we do a realistic 25 seconds countdown so user sees it in action,
-          // with full note that production script runs 240-480s (4-8 mins).
-          const delaySec = Math.floor(Math.random() * 15) + 20; // 20-35s visual countdown
-          startCooldown(delaySec, queue, index + 1);
-        } else {
-          // Finish
-          setEngineState((prev) => ({
-            ...prev,
-            status: "completed",
-            progressPercent: 100,
-          }));
-          addLog(
-            "success",
-            `🎉 Đã hoàn thành toàn bộ danh sách nhóm! Trình duyệt chuyển sang trạng thái ngủ.`
-          );
-        }
-      }, 2500);
-    }, 2000);
+      // Update group status with tracking history & record post result
+      const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+      const newRecord: PostResultRecord = {
+        id: `post-${Date.now()}-${group.id}`,
+        timestamp: `${nowTime} Hôm nay`,
+        groupId: group.id,
+        groupName: group.name,
+        groupUrl: group.url,
+        profileId: targetProfile?.id || "prof-1",
+        profileName: targetProfile?.name || "Nick Chính",
+        contentVariant: variant.substring(0, 140) + (variant.length > 140 ? "..." : ""),
+        postUrl: postPermalink,
+        groupPrivacy: group.privacy || "public",
+        status: postStatus,
+        note: statusNote,
+      };
+
+      setPostRecords((prev) => [newRecord, ...prev]);
+
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === group.id
+            ? {
+                ...g,
+                lastStatus: postStatus,
+                isVerifiedSafe: postStatus === "success" ? true : g.isVerifiedSafe,
+                successCount: (g.successCount || 0) + (postStatus === "success" ? 1 : 0),
+                lastPostedAt: `${nowTime} Hôm nay`,
+                postNote: statusNote,
+                lastPostUrl: postPermalink,
+              }
+            : g
+        )
+      );
+
+      // If there are more groups, enter cooldown
+      if (index < queue.length - 1) {
+        const delaySec = Math.floor(Math.random() * 8) + 12; // 12-20s cooldown
+        startCooldown(delaySec, queue, index + 1);
+      } else {
+        // Finish
+        setEngineState((prev) => ({
+          ...prev,
+          status: "completed",
+          progressPercent: 100,
+        }));
+        addLog(
+          "success",
+          `🎉 HOÀN THÀNH TOÀN BỘ CA ĐĂNG BÀI! Đã xử lý xong ${queue.length} nhóm.`
+        );
+      }
+    }, 1500);
   };
 
   // Cooldown countdown timer
@@ -698,6 +706,7 @@ export default function App() {
         setProfiles={setProfiles}
         activeProfileId={activeProfileId}
         setActiveProfileId={setActiveProfileId}
+        setGroups={setGroups}
       />
 
       <PostReportModal

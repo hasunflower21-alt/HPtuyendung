@@ -10,8 +10,13 @@ import {
   ShieldCheck,
   Info,
   Layers,
+  Key,
+  RefreshCw,
+  Sparkles,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
-import { FacebookProfile } from "../types";
+import { FacebookProfile, FacebookGroup } from "../types";
 
 interface ProfileManagerModalProps {
   isOpen: boolean;
@@ -20,6 +25,7 @@ interface ProfileManagerModalProps {
   setProfiles: React.Dispatch<React.SetStateAction<FacebookProfile[]>>;
   activeProfileId: string;
   setActiveProfileId: (id: string) => void;
+  setGroups?: React.Dispatch<React.SetStateAction<FacebookGroup[]>>;
 }
 
 export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
@@ -29,6 +35,7 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
   setProfiles,
   activeProfileId,
   setActiveProfileId,
+  setGroups,
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
@@ -36,20 +43,87 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
   // Form states
   const [name, setName] = useState("");
   const [chromeProfileName, setChromeProfileName] = useState("Default");
+  const [tokenOrCookie, setTokenOrCookie] = useState("");
   const [fbUidOrUsername, setFbUidOrUsername] = useState("");
   const [notes, setNotes] = useState("");
   const [color, setColor] = useState<FacebookProfile["color"]>("blue");
+
+  // Auth verification state
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyMessage, setVerifyMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+    avatarUrl?: string;
+  } | null>(null);
 
   if (!isOpen) return null;
 
   const resetForm = () => {
     setName("");
     setChromeProfileName("Default");
+    setTokenOrCookie("");
     setFbUidOrUsername("");
     setNotes("");
     setColor("blue");
     setEditingId(null);
     setShowAddForm(false);
+    setVerifyMessage(null);
+  };
+
+  const handleVerifyAccount = async () => {
+    if (!tokenOrCookie.trim()) {
+      alert("Vui lòng nhập Access Token hoặc Cookie để kiểm tra.");
+      return;
+    }
+
+    setIsVerifying(true);
+    setVerifyMessage(null);
+
+    try {
+      const res = await fetch("/api/facebook/check-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tokenOrCookie: tokenOrCookie.trim() }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.user) {
+        if (!name.trim()) {
+          setName(data.user.name);
+        }
+        if (data.user.id) {
+          setFbUidOrUsername(data.user.id);
+        }
+
+        let msg = `Đã nhận diện tài khoản Facebook: "${data.user.name}"!`;
+        if (data.groups && data.groups.length > 0 && setGroups) {
+          setGroups((prev) => {
+            const existingIds = new Set(prev.map((g) => g.id));
+            const newGroups = data.groups.filter((g: any) => !existingIds.has(g.id));
+            return [...newGroups, ...prev];
+          });
+          msg += ` Tự động đồng bộ thêm ${data.groups.length} nhóm vào danh sách!`;
+        }
+
+        setVerifyMessage({
+          type: "success",
+          text: msg,
+          avatarUrl: data.user.avatarUrl,
+        });
+      } else {
+        setVerifyMessage({
+          type: "error",
+          text: data.error || "Không thể xác thực thông tin tài khoản Facebook.",
+        });
+      }
+    } catch (e: any) {
+      setVerifyMessage({
+        type: "error",
+        text: "Lỗi kết nối máy chủ Facebook: " + (e.message || "Không xác định"),
+      });
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleSaveProfile = (e: React.FormEvent) => {
@@ -67,7 +141,10 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                 ...p,
                 name: name.trim(),
                 chromeProfileName: chromeProfileName.trim() || "Default",
+                tokenOrCookie: tokenOrCookie.trim(),
                 fbUidOrUsername: fbUidOrUsername.trim(),
+                avatarUrl: verifyMessage?.avatarUrl || p.avatarUrl,
+                tokenStatus: tokenOrCookie.trim() ? "valid" : "unconfigured",
                 notes: notes.trim(),
                 color,
               }
@@ -79,7 +156,10 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
         id: `prof-${Date.now()}`,
         name: name.trim(),
         chromeProfileName: chromeProfileName.trim() || "Default",
+        tokenOrCookie: tokenOrCookie.trim(),
         fbUidOrUsername: fbUidOrUsername.trim(),
+        avatarUrl: verifyMessage?.avatarUrl,
+        tokenStatus: tokenOrCookie.trim() ? "valid" : "unconfigured",
         notes: notes.trim(),
         color,
         isDefault: profiles.length === 0,
@@ -97,10 +177,12 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
     setEditingId(profile.id);
     setName(profile.name);
     setChromeProfileName(profile.chromeProfileName);
+    setTokenOrCookie(profile.tokenOrCookie || "");
     setFbUidOrUsername(profile.fbUidOrUsername || "");
     setNotes(profile.notes || "");
     setColor(profile.color || "blue");
     setShowAddForm(true);
+    setVerifyMessage(null);
   };
 
   const handleDelete = (id: string) => {
@@ -180,19 +262,19 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                Quản Lý Nick Facebook (Profile Tagging)
+                Cấu Hình Tài Khoản Facebook
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold border border-blue-200">
                   {profiles.length} tài khoản
                 </span>
               </h3>
               <p className="text-[11px] text-slate-500">
-                Gắn nhãn nick nào đang chạy bài, phân quyền nhóm và cấu hình Profile Chrome
+                Nhập Token hoặc Cookie để ứng dụng tự động đăng bài lên nhóm Facebook
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 text-xs font-bold p-1.5 rounded-lg"
+            className="text-slate-400 hover:text-slate-700 text-xs font-bold p-1.5 rounded-lg cursor-pointer"
           >
             ✕ Đóng
           </button>
@@ -200,9 +282,9 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
 
         {/* Explain Banner */}
         <div className="p-3 bg-blue-50/70 border-b border-blue-100 text-[11px] text-blue-900 flex items-start gap-2">
-          <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+          <ShieldCheck className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
           <div>
-            <strong>Xác định Nick đăng bài:</strong> Bằng cách đặt tên nick và Profile Chrome tương ứng, bạn sẽ luôn biết chính xác bài viết trong nhóm được đẩy bởi nick nào. Khi xuất báo cáo hoặc chạy Script Playwright, hệ thống sẽ tự động đồng bộ đúng nick này!
+            <strong>Tự Động Đăng Bài 100%:</strong> Khi bạn dán Access Token (EAA...) hoặc Cookie vào nick, hệ thống sẽ tự động gửi bài viết trực tiếp lên các nhóm Facebook đã chọn mà không yêu cầu bạn phải thao tác thủ công gì thêm!
           </div>
         </div>
 
@@ -219,10 +301,10 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                   resetForm();
                   setShowAddForm(true);
                 }}
-                className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1 shadow-xs transition-colors"
+                className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
               >
                 <UserPlus className="w-3.5 h-3.5" />
-                <span>Thêm Nick Facebook</span>
+                <span>Thêm Nick Facebook Mới</span>
               </button>
             </div>
           ) : (
@@ -233,15 +315,65 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
             >
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <span className="text-xs font-bold text-slate-900">
-                  {editingId ? "Chỉnh sửa Nick Facebook" : "Thêm Nick Facebook Mới"}
+                  {editingId ? "Chỉnh sửa Tài Khoản Facebook" : "Thêm Tài Khoản Facebook Mới"}
                 </span>
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="text-xs text-slate-500 hover:text-slate-800"
+                  className="text-xs text-slate-500 hover:text-slate-800 cursor-pointer"
                 >
                   Hủy
                 </button>
+              </div>
+
+              {/* Token / Cookie Input & Auto-verify */}
+              <div className="p-3 rounded-xl bg-white border border-blue-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-blue-900 flex items-center gap-1">
+                    <Key className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Access Token Facebook hoặc Cookie (Để App Tự Đăng)</span>
+                  </label>
+                  <span className="text-[10px] text-slate-500">Khuyên dùng EAA...</span>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Dán Access Token (EAA...) hoặc Cookie (c_user=...; xs=...)"
+                    value={tokenOrCookie}
+                    onChange={(e) => setTokenOrCookie(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-mono text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
+                  />
+                  <button
+                    type="button"
+                    disabled={isVerifying || !tokenOrCookie.trim()}
+                    onClick={handleVerifyAccount}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    {isVerifying ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                    <span>Kiểm Tra</span>
+                  </button>
+                </div>
+
+                {verifyMessage && (
+                  <div
+                    className={`p-2 rounded-lg text-xs flex items-center gap-2 ${
+                      verifyMessage.type === "success"
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : "bg-rose-50 text-rose-800 border border-rose-200"
+                    }`}
+                  >
+                    {verifyMessage.type === "success" ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                    )}
+                    <span className="text-[11px]">{verifyMessage.text}</span>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -260,34 +392,6 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Profile Chrome (Trình duyệt máy tính)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="VD: Default, Profile 1, Profile 2..."
-                    value={chromeProfileName}
-                    onChange={(e) => setChromeProfileName(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Link Trang Cá Nhân hoặc UID (Tùy chọn)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="VD: https://facebook.com/nam.le.999"
-                    value={fbUidOrUsername}
-                    onChange={(e) => setFbUidOrUsername(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
-                  />
-                </div>
-
-                <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Màu Nhãn Đại Diện
                   </label>
@@ -298,7 +402,7 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                           key={c}
                           type="button"
                           onClick={() => setColor(c)}
-                          className={`w-6 h-6 rounded-full border-2 transition-all ${
+                          className={`w-6 h-6 rounded-full border-2 transition-all cursor-pointer ${
                             c === "blue"
                               ? "bg-blue-500"
                               : c === "purple"
@@ -326,7 +430,7 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="VD: Nick nuôi trên 2 năm, chuyên đẩy bài M&E, ít bị chặn..."
+                  placeholder="VD: Nick chính chủ, nhóm uy tín..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
@@ -337,13 +441,13 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-100"
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-100 cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs"
+                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs cursor-pointer"
                 >
                   {editingId ? "Cập Nhật Nick" : "Lưu Nick Mới"}
                 </button>
@@ -369,17 +473,34 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2.5 min-w-0 flex-1">
                       {/* Avatar / Color Badge */}
-                      <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 border ${colorCls.bg} ${colorCls.text} ${colorCls.border}`}
-                      >
-                        {profile.name.charAt(0)}
-                      </div>
+                      {profile.avatarUrl ? (
+                        <img
+                          src={profile.avatarUrl}
+                          alt={profile.name}
+                          className="w-8 h-8 rounded-lg object-cover flex-shrink-0 border border-slate-200"
+                        />
+                      ) : (
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 border ${colorCls.bg} ${colorCls.text} ${colorCls.border}`}
+                        >
+                          {profile.name.charAt(0)}
+                        </div>
+                      )}
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <h4 className="text-xs font-bold text-slate-900">
                             {profile.name}
                           </h4>
+                          {profile.tokenStatus === "valid" ? (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
+                              ✓ Token Sẵn Sàng
+                            </span>
+                          ) : (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-medium">
+                              Chưa gắn Token
+                            </span>
+                          )}
                           {profile.isDefault && (
                             <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200 font-bold flex items-center gap-0.5">
                               <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
@@ -391,27 +512,6 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                               <Check className="w-2.5 h-2.5" />
                               Đang Chọn Thực Thi
                             </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500 flex-wrap">
-                          <span className="inline-flex items-center gap-1 font-mono bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 text-slate-700">
-                            Chrome: {profile.chromeProfileName}
-                          </span>
-                          {profile.fbUidOrUsername && (
-                            <a
-                              href={
-                                profile.fbUidOrUsername.startsWith("http")
-                                  ? profile.fbUidOrUsername
-                                  : `https://facebook.com/${profile.fbUidOrUsername}`
-                              }
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-blue-600 hover:underline flex items-center gap-0.5 truncate max-w-[180px]"
-                            >
-                              <span>{profile.fbUidOrUsername}</span>
-                              <ExternalLink className="w-2.5 h-2.5 flex-shrink-0" />
-                            </a>
                           )}
                         </div>
 
@@ -428,7 +528,7 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                       {!isActive && (
                         <button
                           onClick={() => setActiveProfileId(profile.id)}
-                          className="px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold border border-blue-200 transition-colors"
+                          className="px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold border border-blue-200 transition-colors cursor-pointer"
                           title="Chọn nick này để chạy bài"
                         >
                           Chọn Dùng
@@ -438,7 +538,7 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                       {!profile.isDefault && (
                         <button
                           onClick={() => handleSetDefault(profile.id)}
-                          className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-slate-100"
+                          className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-slate-100 cursor-pointer"
                           title="Đặt làm nick mặc định"
                         >
                           <Star className="w-3.5 h-3.5" />
@@ -447,7 +547,7 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
 
                       <button
                         onClick={() => handleStartEdit(profile)}
-                        className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-slate-100"
+                        className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-slate-100 cursor-pointer"
                         title="Chỉnh sửa thông tin nick"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
@@ -455,7 +555,7 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
 
                       <button
                         onClick={() => handleDelete(profile.id)}
-                        className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-slate-100"
+                        className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-slate-100 cursor-pointer"
                         title="Xóa nick này"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -478,7 +578,7 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xs text-xs"
+            className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xs text-xs cursor-pointer"
           >
             Hoàn Tất
           </button>

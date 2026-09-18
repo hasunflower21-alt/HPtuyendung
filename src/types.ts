@@ -4,6 +4,12 @@ export interface FacebookProfile {
   fbUidOrUsername?: string; // Link FB cá nhân hoặc UID (e.g. facebook.com/me)
   chromeProfileName: string; // "Default", "Profile 1", "Profile 2"...
   chromeUserDataPath?: string; // Đường dẫn thư mục User Data nếu có
+  authType?: "token" | "cookie" | "browser"; // Loại xác thực để app tự động đăng
+  tokenOrCookie?: string; // Access Token (EAA...) hoặc Cookie (c_user=...; xs=...)
+  avatarUrl?: string; // Ảnh đại diện Facebook
+  fbUserId?: string; // UID Facebook
+  tokenStatus?: "valid" | "invalid" | "unconfigured";
+  lastCheckedAt?: string;
   notes?: string; // Ghi chú loại nick, mục đích sử dụng
   isDefault?: boolean;
   color?: "blue" | "purple" | "emerald" | "amber" | "rose" | "indigo";

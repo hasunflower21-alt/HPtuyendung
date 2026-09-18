@@ -216,74 +216,53 @@ export const ScheduleConfigPanel: React.FC<ScheduleConfigPanelProps> = ({
         </div>
       </div>
 
-      {/* Two Execution Methods: Web Auto-Tab vs Full Windows Automation */}
-      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-blue-600 text-white font-bold">
-              <Laptop className="w-4 h-4" />
+      {/* Primary 1-Click Execution Hero */}
+      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white rounded-2xl p-5 sm:p-6 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Chế Độ Tự Động 1-Click (Không Cần Thao Tác)</span>
             </div>
-            <div>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900">
-                Phương Thức Đăng Bài Thực Tế Lên Facebook Của Bạn
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                Chọn phương thức phù hợp với thiết bị của bạn để bài đăng xuất hiện thật 100% trên Facebook:
-              </p>
-            </div>
+            <h3 className="text-base sm:text-lg font-bold text-white">
+              Đăng Bài Tự Động Lên {selectedGroupCount} Nhóm Mục Tiêu
+            </h3>
+            <p className="text-xs text-blue-200/90 leading-relaxed max-w-xl">
+              Hệ thống tự động xoay Spintax độc bản cho từng nhóm, kết nối API đăng bài, đếm ngược thời gian nghỉ chống Spam Checkpoint và xuất báo cáo link bài viết sau khi đăng.
+            </p>
           </div>
+
+          <button
+            disabled={engineRunning || selectedGroupCount === 0}
+            onClick={() => onStartEngine("full")}
+            className="w-full sm:w-auto px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Play className="w-5 h-5 fill-white" />
+            <span>BẮT ĐẦU ĐĂNG BÀI TỰ ĐỘNG</span>
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* Method 1: Web Auto-Flow */}
-          <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2 flex flex-col justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5 text-blue-700 font-bold text-xs">
-                <Globe className="w-4 h-4 text-blue-600" />
-                <span>Cách 1: Chạy Trực Tiếp Trên Web / Điện Thoại</span>
-              </div>
-              <p className="text-[11px] text-slate-600 leading-relaxed">
-                Khi bấm <strong>"Bắt Đầu Đăng"</strong>, hệ thống sẽ tự động xoay Spintax độc bản, tải ảnh đã tối ưu và mở từng nhóm Facebook để đăng bài theo đúng khoảng nghỉ chống checkpoint.
-              </p>
-            </div>
+        <div className="pt-3 border-t border-blue-800/60 flex flex-wrap items-center justify-between gap-3 text-xs text-blue-200">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5">
+              <Check className="w-4 h-4 text-emerald-400" />
+              Tự xoay Spintax độc bản
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Check className="w-4 h-4 text-emerald-400" />
+              Nghỉ ngơi chống checkpoint
+            </span>
+          </div>
 
+          {onOpenScriptModal && (
             <button
-              disabled={engineRunning || selectedGroupCount === 0}
-              onClick={() => onStartEngine("full")}
-              className="w-full py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+              onClick={onOpenScriptModal}
+              className="text-xs text-blue-300 hover:text-white underline flex items-center gap-1 cursor-pointer"
             >
-              <Play className="w-3.5 h-3.5 fill-white" />
-              <span>Bắt Đầu Đăng Trên Web ({selectedGroupCount} nhóm)</span>
+              <Terminal className="w-3.5 h-3.5" />
+              <span>Tùy chọn nâng cao: Tải script chạy trên Chrome máy tính</span>
             </button>
-          </div>
-
-          {/* Method 2: 1-Click Desktop Automation */}
-          <div className="p-3.5 bg-white rounded-xl border border-blue-200 bg-blue-50/30 shadow-2xs space-y-2 flex flex-col justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-emerald-800 font-bold text-xs">
-                  <Terminal className="w-4 h-4 text-emerald-600" />
-                  <span>Cách 2: File Tự Động 100% Cho Máy Tính (Windows)</span>
-                </div>
-                <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold">
-                  Không Cần Chạm Tay
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-600 leading-relaxed">
-                Tải file chạy <strong>CHAY_TU_DONG_WINDOWS.bat</strong> về máy tính. Chỉ cần click đúp vào file 1 lần duy nhất, máy tính sẽ tự mở Chrome của bạn và tự động đăng lần lượt toàn bộ các nhóm.
-              </p>
-            </div>
-
-            {onOpenScriptModal && (
-              <button
-                onClick={onOpenScriptModal}
-                className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Tải File Chạy Tự Động 1-Click (.BAT)</span>
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
