@@ -14,6 +14,7 @@ import {
   Moon,
   ShieldCheck,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { EngineState, LogEntry, FacebookGroup } from "../types";
 
@@ -29,6 +30,8 @@ interface LiveMonitorProps {
   onGoToGroups?: () => void;
   groups?: FacebookGroup[];
   onOpenProfiles?: () => void;
+  onOpenScriptModal?: () => void;
+  onOpenQuickTestModal?: () => void;
 }
 
 export const LiveMonitor: React.FC<LiveMonitorProps> = ({
@@ -43,6 +46,8 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({
   onGoToGroups,
   groups = [],
   onOpenProfiles,
+  onOpenScriptModal,
+  onOpenQuickTestModal,
 }) => {
   const [logFilter, setLogFilter] = useState<"all" | "success" | "delay" | "warning">("all");
   const [copiedLogs, setCopiedLogs] = useState(false);
@@ -62,6 +67,15 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({
 
   const getErrorDiagnosis = (errorMsg: string) => {
     const msg = errorMsg.toLowerCase();
+    if (msg.includes("deprecated") || msg.includes("ngừng hỗ trợ") || msg.includes("page public content access") || msg.includes("groups api")) {
+      return {
+        title: "Meta Đã Ngừng Hỗ Trợ Đăng Nhóm Qua Token (Groups API Deprecated)",
+        cause: "Từ ngày 22/04/2024, Facebook đã khai tử tính năng đăng bài qua API Token cho bên thứ 3.",
+        solution: "1. Sử dụng 'Tự Động Hóa Chrome (.BAT)' để máy tính tự động mở Chrome và đăng bài trực tiếp 100% thật.\n2. Hoặc dùng 'Trợ Lý Đăng 1-Chạm' trên Web: Bấm nút mở nhóm, bài viết đã có sẵn trong clipboard, chỉ cần nhấn Ctrl+V và Đăng!",
+        actionType: "script",
+        actionText: "Tải File .BAT Chạy Tự Động",
+      };
+    }
     if (msg.includes("token") || msg.includes("auth") || msg.includes("cookie") || msg.includes("chưa đăng nhập") || msg.includes("hết hạn")) {
       return {
         title: "Lỗi Xác Thực / Token - Cookie Hết Hạn",
@@ -356,12 +370,19 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({
             )}
           </div>
 
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] text-slate-400 font-semibold">Nhóm mục tiêu:</span>
-              <strong className="text-xs text-slate-900 truncate max-w-xs">
-                {engineState.currentGroupName || "Chưa có nhóm nào đang chạy"}
-              </strong>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-1.5 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-slate-400 font-semibold">Nhóm mục tiêu:</span>
+                <strong className="text-xs text-slate-900 truncate max-w-xs font-bold">
+                  {engineState.currentGroupName || "Chưa có nhóm nào đang chạy"}
+                </strong>
+              </div>
+              {activeGroup && (
+                <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold border border-blue-200">
+                  Trợ Lý 1-Chạm Sẵn Sàng
+                </span>
+              )}
             </div>
 
             <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-700 font-mono leading-relaxed line-clamp-3">
@@ -369,21 +390,66 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({
                 "Nội dung văn bản được xoay vòng spintax ngẫu nhiên sẽ hiển thị trực quan tại đây khi bot đăng bài..."}
             </div>
 
-            {activeGroup && engineState.currentVariation && (
-              <div className="pt-1 flex items-center justify-between gap-2">
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(engineState.currentVariation);
-                    window.open(activeGroup.url, "_blank");
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Mở Tab Nhóm & Tự Copy Bài Này Vào Clipboard</span>
-                </button>
-                <span className="text-[10px] text-slate-500">
-                  (Chỉ cần bấm Ctrl+V để dán bài trên Facebook)
-                </span>
+            {activeGroup && (
+              <div className="pt-1.5 space-y-2 border-t border-slate-100">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (engineState.currentVariation) {
+                        navigator.clipboard.writeText(engineState.currentVariation);
+                      }
+                      window.open(activeGroup.url, "_blank");
+                    }}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                    title="Mở nhóm trên Facebook và tự động sao chép bài viết vào Clipboard để bạn dán ngay"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span>🚀 MỞ NHÓM & DÁN BÀI (Ctrl+V)</span>
+                  </button>
+
+                  <button
+                    onClick={onFastForwardCooldown}
+                    className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    title="Xác nhận đã đăng và chuyển sang nhóm tiếp theo"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>✓ Đã Đăng Xong ➔ Nhóm Tiếp</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
+                  <span>💡 Bài viết đã tự động copy vào Clipboard (chỉ cần ấn <strong>Ctrl+V</strong> trên Facebook).</span>
+                  {onOpenScriptModal && (
+                    <button
+                      onClick={onOpenScriptModal}
+                      className="text-blue-600 hover:underline font-bold whitespace-nowrap ml-2 cursor-pointer"
+                    >
+                      🤖 Tải File Tự Động .BAT (Không cần chạm tay) &rarr;
+                    </button>
+                  )}
+                </div>
+
+                {/* Notice if Facebook shows "Bạn hiện không xem được nội dung này" */}
+                {onOpenQuickTestModal && (
+                  <div className="mt-2 p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-2xs">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div className="text-[11px] text-amber-900 leading-tight">
+                        <span className="font-bold">Facebook báo "Bạn hiện không xem được nội dung này"?</span>
+                        <p className="text-amber-800 text-[10px] mt-0.5">
+                          Do đây là link nhóm mẫu (không có thật trên Facebook) hoặc bạn chưa tham gia nhóm.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onOpenQuickTestModal}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-[11px] flex items-center gap-1 flex-shrink-0 cursor-pointer shadow-2xs transition-colors self-end sm:self-auto"
+                    >
+                      <span>✏️ Đổi Sang Link Nhóm Thật Của Bạn</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -430,6 +496,16 @@ export const LiveMonitor: React.FC<LiveMonitorProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 pt-1">
+                {diagnosis.actionType === "script" && onOpenScriptModal && (
+                  <button
+                    onClick={onOpenScriptModal}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-2xs transition-colors flex items-center gap-1.5"
+                  >
+                    <span>{diagnosis.actionText}</span>
+                    <span>&rarr;</span>
+                  </button>
+                )}
+
                 {diagnosis.actionType === "profile" && onOpenProfiles && (
                   <button
                     onClick={onOpenProfiles}

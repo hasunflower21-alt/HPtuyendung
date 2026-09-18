@@ -15,6 +15,7 @@ import {
   Sparkles,
   CheckCircle2,
   AlertTriangle,
+  AlertCircle,
 } from "lucide-react";
 import { FacebookProfile, FacebookGroup } from "../types";
 
@@ -55,6 +56,15 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
     text: string;
     avatarUrl?: string;
   } | null>(null);
+
+  // Card-level quick check states
+  const [testingProfileId, setTestingProfileId] = useState<string | null>(null);
+  const [cardFeedback, setCardFeedback] = useState<{
+    profileId: string;
+    type: "success" | "warning" | "error";
+    text: string;
+  } | null>(null);
+  const [showTokenGuide, setShowTokenGuide] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
@@ -238,6 +248,100 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
     }
   };
 
+  const handleTestProfile = async (profile: FacebookProfile) => {
+    const cleanInput = (profile.tokenOrCookie || "").trim();
+    if (!cleanInput) {
+      setCardFeedback({
+        profileId: profile.id,
+        type: "warning",
+        text: "Nick này chưa cấu hình Token hoặc Cookie. Bạn vẫn có thể chạy bình thường ở chế độ Web Simulator hoặc tải Script Playwright để tự động đăng bằng Chrome thật mà không cần Token!",
+      });
+      return;
+    }
+
+    setTestingProfileId(profile.id);
+    setCardFeedback(null);
+
+    // Quick client check for Cookie
+    const cUserMatch = cleanInput.match(/c_user=(\d+)/);
+    if (cUserMatch) {
+      const fbUid = cUserMatch[1];
+      const avatarUrl = `https://graph.facebook.com/${fbUid}/picture?type=large`;
+      setProfiles((prev) =>
+        prev.map((p) =>
+          p.id === profile.id
+            ? { ...p, avatarUrl: avatarUrl, tokenStatus: "valid", fbUidOrUsername: p.fbUidOrUsername || fbUid }
+            : p
+        )
+      );
+      setCardFeedback({
+        profileId: profile.id,
+        type: "success",
+        text: `Cookie hợp lệ! UID Facebook: ${fbUid}. Phiên đăng nhập đã sẵn sàng để đẩy bài.`,
+      });
+      setTestingProfileId(null);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/facebook/check-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tokenOrCookie: cleanInput }),
+      });
+
+      const data = await res.json();
+      if (data && data.success && data.user) {
+        setProfiles((prev) =>
+          prev.map((p) =>
+            p.id === profile.id
+              ? {
+                  ...p,
+                  avatarUrl: data.user.avatarUrl || p.avatarUrl,
+                  name: p.name.includes("Nick") ? data.user.name : p.name,
+                  tokenStatus: "valid",
+                  fbUidOrUsername: data.user.id || p.fbUidOrUsername,
+                }
+              : p
+          )
+        );
+
+        let msg = `Kết nối thành công! Tài khoản: "${data.user.name}" (UID: ${data.user.id}).`;
+        if (data.groups && data.groups.length > 0 && setGroups) {
+          setGroups((prev) => {
+            const existingIds = new Set(prev.map((g) => g.id));
+            const newGroups = data.groups.filter((g: any) => !existingIds.has(g.id));
+            return [...newGroups, ...prev];
+          });
+          msg += ` Đã tự động đồng bộ thêm ${data.groups.length} nhóm tham gia vào danh sách!`;
+        }
+
+        setCardFeedback({
+          profileId: profile.id,
+          type: "success",
+          text: msg,
+        });
+      } else {
+        setProfiles((prev) =>
+          prev.map((p) => (p.id === profile.id ? { ...p, tokenStatus: "invalid" } : p))
+        );
+        setCardFeedback({
+          profileId: profile.id,
+          type: "error",
+          text: data?.error || "Token Facebook đã hết hạn hoặc không hợp lệ. Vui lòng cập nhật Token mới.",
+        });
+      }
+    } catch (err: any) {
+      setCardFeedback({
+        profileId: profile.id,
+        type: "error",
+        text: "Lỗi kết nối máy chủ Facebook: " + (err.message || "Không xác định"),
+      });
+    } finally {
+      setTestingProfileId(null);
+    }
+  };
+
   const handleSetDefault = (id: string) => {
     setProfiles((prev) =>
       prev.map((p) => ({
@@ -317,12 +421,53 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
           </button>
         </div>
 
-        {/* Explain Banner */}
-        <div className="p-3 bg-blue-50/70 border-b border-blue-100 text-[11px] text-blue-900 flex items-start gap-2">
-          <ShieldCheck className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <strong>Tự Động Đăng Bài 100%:</strong> Khi bạn dán Access Token (EAA...) hoặc Cookie vào nick, hệ thống sẽ tự động gửi bài viết trực tiếp lên các nhóm Facebook đã chọn mà không yêu cầu bạn phải thao tác thủ công gì thêm!
+        {/* Explain Banner & Quick Guide Toggle */}
+        <div className="p-3 bg-blue-50/70 border-b border-blue-100 text-[11px] text-blue-900 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-blue-600 flex-shrink-0" />
+              <strong>Tự Động Hóa Tài Khoản Nguồn Facebook:</strong>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowTokenGuide(!showTokenGuide)}
+              className="text-blue-700 hover:text-blue-900 font-bold underline cursor-pointer text-[10px]"
+            >
+              {showTokenGuide ? "Thu gọn hướng dẫn ▲" : "Xem cách lấy Token / Cookie Facebook ▼"}
+            </button>
           </div>
+          <p className="text-slate-600 text-[11px] leading-relaxed">
+            Hỗ trợ 3 cách thực thi: <strong>1. Dán Access Token (EAA...)</strong> để đăng qua Graph API, <strong>2. Dán Cookie</strong> để xác thực phiên, hoặc <strong>3. Dùng Script Playwright</strong> chạy trực tiếp trên Chrome máy tính mà không cần cung cấp Token!
+          </p>
+
+          {showTokenGuide && (
+            <div className="mt-2 p-3 bg-white rounded-xl border border-blue-200 shadow-2xs space-y-2 text-slate-700 text-xs animate-in fade-in">
+              <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                <span>3 Cách Cấu Hình Tài Khoản Nguồn:</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+                  <div className="font-bold text-blue-700">Cách 1: Access Token (EAA...)</div>
+                  <p className="text-slate-600 text-[10px]">
+                    Lấy Token quyền đăng bài từ Graph API Explorer hoặc công cụ quản trị. Tốc độ cao nhất, tự động đăng ngầm.
+                  </p>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+                  <div className="font-bold text-emerald-700">Cách 2: Cookie Facebook</div>
+                  <p className="text-slate-600 text-[10px]">
+                    Mở Facebook trên Chrome ➔ Bấm F12 ➔ Tab Application ➔ Cookies ➔ Sao chép chuỗi <code>c_user=...; xs=...</code> dán vào đây.
+                  </p>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+                  <div className="font-bold text-purple-700">Cách 3: Chrome Thật (Playwright)</div>
+                  <p className="text-slate-600 text-[10px]">
+                    Không cần Token. Nhấn "Xuất Script Playwright", file tự mở Chrome đã đăng nhập sẵn nick trên máy bạn và đăng bài.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Content Body */}
@@ -561,9 +706,26 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {/* Quick Test Connection Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleTestProfile(profile)}
+                        disabled={testingProfileId === profile.id}
+                        className="px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold border border-emerald-200 transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                        title="Kiểm tra kết nối và token/cookie của nick này"
+                      >
+                        {testingProfileId === profile.id ? (
+                          <RefreshCw className="w-3 h-3 animate-spin text-emerald-600" />
+                        ) : (
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        )}
+                        <span>{testingProfileId === profile.id ? "Đang Test..." : "Kiểm Tra"}</span>
+                      </button>
+
                       {!isActive && (
                         <button
+                          type="button"
                           onClick={() => setActiveProfileId(profile.id)}
                           className="px-2 py-1 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold border border-blue-200 transition-colors cursor-pointer"
                           title="Chọn nick này để chạy bài"
@@ -574,6 +736,7 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
 
                       {!profile.isDefault && (
                         <button
+                          type="button"
                           onClick={() => handleSetDefault(profile.id)}
                           className="p-1 rounded-md text-slate-400 hover:text-amber-600 hover:bg-slate-100 cursor-pointer"
                           title="Đặt làm nick mặc định"
@@ -583,6 +746,7 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                       )}
 
                       <button
+                        type="button"
                         onClick={() => handleStartEdit(profile)}
                         className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-slate-100 cursor-pointer"
                         title="Chỉnh sửa thông tin nick"
@@ -591,6 +755,7 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                       </button>
 
                       <button
+                        type="button"
                         onClick={() => handleDelete(profile.id)}
                         className="p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-slate-100 cursor-pointer"
                         title="Xóa nick này"
@@ -599,6 +764,26 @@ export const ProfileManagerModal: React.FC<ProfileManagerModalProps> = ({
                       </button>
                     </div>
                   </div>
+
+                  {/* Inline Card Feedback message */}
+                  {cardFeedback?.profileId === profile.id && (
+                    <div
+                      className={`mt-2 p-2 rounded-lg text-xs flex items-start gap-1.5 animate-in fade-in ${
+                        cardFeedback.type === "success"
+                          ? "bg-emerald-50 text-emerald-900 border border-emerald-200"
+                          : cardFeedback.type === "warning"
+                          ? "bg-amber-50 text-amber-900 border border-amber-200"
+                          : "bg-red-50 text-red-900 border border-red-200"
+                      }`}
+                    >
+                      {cardFeedback.type === "success" ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-amber-600" />
+                      )}
+                      <span>{cardFeedback.text}</span>
+                    </div>
+                  )}
                 </div>
               );
             })}

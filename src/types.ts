@@ -26,7 +26,7 @@ export interface PostResultRecord {
   contentVariant: string; // Nội dung Spintax đã xuất
   postUrl?: string; // Link bài viết cụ thể hoặc link nhóm
   groupPrivacy?: "public" | "private"; // Nhóm công khai (ai cũng xem được) hay nhóm kín
-  status: "success" | "pending_approval" | "blocked" | "error";
+  status: "success" | "pending_approval" | "blocked" | "error" | "ready";
   note?: string;
 }
 

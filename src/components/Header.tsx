@@ -13,7 +13,10 @@ import {
   Settings,
   Zap,
   CheckCircle2,
+  ChevronDown,
+  Check,
 } from "lucide-react";
+import { FacebookProfile } from "../types";
 
 interface HeaderProps {
   onOpenScriptModal: () => void;
@@ -32,6 +35,9 @@ interface HeaderProps {
   engineRunning: boolean;
   activeProfileName?: string;
   reportCount?: number;
+  profiles?: FacebookProfile[];
+  activeProfileId?: string;
+  setActiveProfileId?: (id: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -50,15 +56,23 @@ export const Header: React.FC<HeaderProps> = ({
   engineRunning,
   activeProfileName = "Nick Chính (Admin)",
   reportCount = 0,
+  profiles = [],
+  activeProfileId,
+  setActiveProfileId,
 }) => {
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close more menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
         setMoreMenuOpen(false);
+      }
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -132,15 +146,71 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Action Tools */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Active Profile Pill */}
-          <button
-            onClick={onOpenProfileModal}
-            className="px-2 sm:px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-[11px] font-semibold flex items-center gap-1.5 transition-colors shadow-2xs"
-            title="Đổi hoặc quản lý danh sách nick Facebook"
-          >
-            <User className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
-            <span className="max-w-[90px] sm:max-w-[130px] truncate">{activeProfileName}</span>
-          </button>
+          {/* Active Profile Pill & Quick Switcher */}
+          <div className="relative" ref={profileMenuRef}>
+            <button
+              onClick={() => {
+                if (profiles.length > 1) {
+                  setProfileDropdownOpen(!profileDropdownOpen);
+                } else {
+                  onOpenProfileModal();
+                }
+              }}
+              className="px-2 sm:px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-[11px] font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer border border-slate-200"
+              title="Đổi hoặc quản lý danh sách nick Facebook"
+            >
+              <User className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+              <span className="max-w-[90px] sm:max-w-[130px] truncate">{activeProfileName}</span>
+              {profiles.length > 1 && (
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              )}
+            </button>
+
+            {profileDropdownOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
+                  <span>Chọn Nick Facebook</span>
+                  <span className="text-blue-600 font-normal">{profiles.length} nick</span>
+                </div>
+
+                <div className="max-h-56 overflow-y-auto py-1">
+                  {profiles.map((p) => {
+                    const isSelected = p.id === activeProfileId;
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          if (setActiveProfileId) setActiveProfileId(p.id);
+                          setProfileDropdownOpen(false);
+                        }}
+                        className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-50 transition-colors ${
+                          isSelected ? "bg-blue-50/70 font-bold text-blue-700" : "text-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                          <span className="truncate">{p.name}</span>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="border-t border-slate-100 pt-1 px-1">
+                  <button
+                    onClick={() => {
+                      setProfileDropdownOpen(false);
+                      onOpenProfileModal();
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-blue-600 hover:bg-blue-50 font-bold text-[11px] flex items-center gap-1.5"
+                  >
+                    <span>⚙️ Quản Lý & Thêm Nick Mới...</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* User Guide Button */}
           {onOpenUserGuide && (

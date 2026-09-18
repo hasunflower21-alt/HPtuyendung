@@ -384,6 +384,11 @@ export const PostReportModal: React.FC<PostReportModalProps> = ({
                                 <ShieldCheck className="w-3 h-3 text-emerald-600" />
                                 Đã Đăng Mượt
                               </span>
+                            ) : rec.status === "ready" ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                                <Sparkles className="w-3 h-3 text-blue-600" />
+                                Trợ Lý 1-Chạm
+                              </span>
                             ) : rec.status === "pending_approval" ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                                 <AlertCircle className="w-3 h-3 text-amber-600" />

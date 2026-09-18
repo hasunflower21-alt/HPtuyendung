@@ -342,16 +342,31 @@ if %errorlevel% equ 0 (
     set "NODE_CMD=node"
     echo [OK] Da phat hien Node.js tren he thong.
 ) else (
-    if exist node.exe (
-        set "NODE_CMD=node.exe"
-        echo [OK] Da tim thay node.exe.
+    echo [*] May tinh cua ban chua co Node.js.
+    echo [*] Dang thu cai dat Node.js tu dong bang Windows Package Manager...
+    where winget >nul 2>nul
+    if !errorlevel! equ 0 (
+        echo [*] Dang cai dat Node.js LTS tu dong... Vui long doi khoang 1 phut...
+        winget install OpenJS.NodeJS.LTS --silent --accept-source-agreements --accept-package-agreements
+        timeout /t 3 /nobreak >nul
     ) else (
-        echo [*] May tinh cua ban chua co Node.js.
-        echo [*] Dang tu dong tai moi truong chay portable (khoang 5-10 giay)...
-        powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $wc = New-Object System.Net.WebClient; try { $wc.DownloadFile('https://nodejs.org/dist/v20.11.1/win-x64/node.exe', 'node.exe'); Write-Host '[OK] Da tai thanh cong node.exe!' } catch { Write-Host '[!] Khong the tai tu dong node.exe: ' $_.Exception.Message }"
-        if exist node.exe (
-            set "NODE_CMD=node.exe"
-        )
+        echo [*] Dang tai trinh cai dat Node.js chinh thuc...
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; try { (New-Object System.Net.WebClient).DownloadFile('https://nodejs.org/dist/v20.11.1/node-v20.11.1-x64.msi', 'node_setup.msi'); Write-Host '[OK] Dang cai dat Node.js...'; Start-Process msiexec.exe -ArgumentList '/i node_setup.msi /passive /norestart' -Wait; Remove-Item 'node_setup.msi' -ErrorAction SilentlyContinue } catch { Write-Host '[!] Khong the tai tu dong: ' $_.Exception.Message }"
+    )
+    where node >nul 2>nul
+    if !errorlevel! equ 0 (
+        set "NODE_CMD=node"
+    )
+)
+
+if "%NODE_CMD%"=="" (
+    REM Thu tim node trong cac duong dan mac dinh
+    if exist "%ProgramFiles%\nodejs\node.exe" (
+        set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
+        set "PATH=%ProgramFiles%\nodejs;%PATH%"
+    ) else if exist "%LocalAppData%\Programs\node\node.exe" (
+        set "NODE_CMD=%LocalAppData%\Programs\node\node.exe"
+        set "PATH=%LocalAppData%\Programs\node;%PATH%"
     )
 )
 
@@ -359,9 +374,9 @@ if "%NODE_CMD%"=="" (
     echo.
     echo ===================================================================
     echo [!] CHUA TIM THAY NODE.JS TREN MAY TINH!
-    echo Vui long cai dat Node.js mien phi theo 2 buoc:
+    echo Vui long cai dat Node.js mien phi (chinh chu):
     echo 1. Trinh duyet dang mo trang tai: https://nodejs.org/
-    echo 2. Tai ban LTS, cai dat va chay lai file nay!
+    echo 2. Bap tai ban LTS (khuyen nghi), cai dat xong hay mo lai file nay!
     echo ===================================================================
     start https://nodejs.org/
     pause
@@ -369,10 +384,14 @@ if "%NODE_CMD%"=="" (
 )
 
 REM Kiem tra thu vien playwright-core
-if not exist node_modules\\playwright-core (
-    echo [*] Dang chuan bi thu vien dieu khien Chrome...
+if not exist node_modules\playwright-core (
+    echo [*] Dang chuan bi thu vien dieu khien Chrome (playwright-core)...
     call npm init -y >nul 2>nul
-    call npm install playwright-core >nul 2>nul
+    call npm install playwright-core --no-audit --no-fund >nul 2>nul
+    if not exist node_modules\playwright-core (
+        echo [*] Dang thu tai playwright-core qua npx...
+        call npx playwright-core --version >nul 2>nul
+    )
     echo [OK] Da chuan bi xong thu vien!
     echo.
 )

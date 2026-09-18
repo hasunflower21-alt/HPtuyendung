@@ -780,6 +780,23 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
         </div>
       </div>
 
+      {/* NOTICE: REAL GROUPS GUIDANCE */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-amber-900 shadow-2xs">
+        <div className="flex items-start sm:items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5 sm:mt-0" />
+          <div className="leading-relaxed">
+            <span className="font-bold text-amber-950">Lưu ý để bài viết đăng được thật lên Facebook:</span> Các nhóm bên dưới là danh sách mẫu mô phỏng. Hãy bấm <strong>"Thêm Nhóm"</strong> hoặc <strong>"Nhập Hàng Loạt"</strong> để thay bằng các link nhóm Facebook THẬT mà tài khoản của bạn ĐÃ THAM GIA!
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowImportModal(true)}
+          className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs whitespace-nowrap shadow-2xs cursor-pointer flex-shrink-0"
+        >
+          + Nhập Danh Sách Nhóm Thật
+        </button>
+      </div>
+
       {/* TABLE & MOBILE VIEW */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         {/* Table/List Subheader with Master Checkbox & Count */}
@@ -1581,7 +1598,7 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
                 >
                   {profiles.map((prof) => (
                     <option key={prof.id} value={prof.id}>
-                      {prof.name} {prof.chromeProfile ? `(${prof.chromeProfile})` : ""}
+                      {prof.name} {prof.chromeProfileName ? `(${prof.chromeProfileName})` : ""}
                     </option>
                   ))}
                 </select>

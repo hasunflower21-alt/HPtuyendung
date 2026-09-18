@@ -15,8 +15,12 @@ import {
   ExternalLink,
   Laptop,
   Globe,
+  User,
+  Users,
+  ChevronRight,
+  RotateCcw,
 } from "lucide-react";
-import { ScheduleConfig } from "../types";
+import { FacebookGroup, FacebookProfile, ScheduleConfig } from "../types";
 
 interface ScheduleConfigPanelProps {
   config: ScheduleConfig;
@@ -25,6 +29,12 @@ interface ScheduleConfigPanelProps {
   engineRunning: boolean;
   selectedGroupCount: number;
   onOpenScriptModal?: () => void;
+  profiles?: FacebookProfile[];
+  activeProfileId?: string;
+  setActiveProfileId?: (id: string) => void;
+  onOpenProfileModal?: () => void;
+  groups?: FacebookGroup[];
+  onOpenQuickTestModal?: () => void;
 }
 
 export const ScheduleConfigPanel: React.FC<ScheduleConfigPanelProps> = ({
@@ -34,9 +44,23 @@ export const ScheduleConfigPanel: React.FC<ScheduleConfigPanelProps> = ({
   engineRunning,
   selectedGroupCount,
   onOpenScriptModal,
+  profiles = [],
+  activeProfileId,
+  setActiveProfileId,
+  onOpenProfileModal,
+  groups = [],
+  onOpenQuickTestModal,
 }) => {
   const [selectedPreset, setSelectedPreset] = useState<"safe" | "fast" | "custom">("safe");
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Active Profile details
+  const activeProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0];
+
+  // Group metrics
+  const selectedGroups = groups.filter((g) => g.isActive);
+  const publicGroupCount = selectedGroups.filter((g) => g.privacy !== "private").length;
+  const safeGroupCount = selectedGroups.filter((g) => g.isVerifiedSafe || g.autoApprove).length;
 
   // Approximate run time calculation
   const avgDelaySec = (config.minDelaySeconds + config.maxDelaySeconds) / 2;
@@ -85,27 +109,110 @@ export const ScheduleConfigPanel: React.FC<ScheduleConfigPanelProps> = ({
 
           {/* Large 1-Click Launch Buttons */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-shrink-0">
-            <button
-              id="test-run-single-btn"
-              disabled={engineRunning || selectedGroupCount === 0}
-              onClick={() => onStartEngine("test")}
-              className="px-4 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-amber-950 text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md cursor-pointer"
-              title="Thử nghiệm đăng ngay vào 1 nhóm đầu tiên để kiểm tra kết quả"
-            >
-              <Zap className="w-4 h-4 fill-amber-950" />
-              <span>Đăng Thử 1 Nhóm</span>
-            </button>
+            <div className="flex flex-col">
+              <button
+                id="test-run-single-btn"
+                disabled={engineRunning || selectedGroupCount === 0}
+                onClick={() => onStartEngine("test")}
+                className="px-4 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-amber-950 text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md cursor-pointer"
+                title="Thử nghiệm đăng ngay vào 1 nhóm đầu tiên để kiểm tra kết quả"
+              >
+                <Zap className="w-4 h-4 fill-amber-950" />
+                <span>Đăng Thử 1 Nhóm</span>
+              </button>
+              {onOpenQuickTestModal && (
+                <button
+                  type="button"
+                  onClick={onOpenQuickTestModal}
+                  className="mt-1 text-[11px] text-amber-200 hover:text-white underline font-semibold text-center cursor-pointer transition-colors"
+                  title="Dán link nhóm thật của bạn để tránh lỗi không xem được nội dung trên Facebook"
+                >
+                  ✏️ Đổi Link Nhóm Thật Của Bạn
+                </button>
+              )}
+            </div>
 
             <button
               id="start-full-campaign-btn"
               disabled={engineRunning || selectedGroupCount === 0}
               onClick={() => onStartEngine("full")}
-              className="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md cursor-pointer ring-2 ring-white/30"
+              className="px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-white text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-md cursor-pointer ring-2 ring-white/30"
               title="Bắt đầu chạy tự động đăng toàn bộ các nhóm đã chọn"
             >
               <Play className="w-4 h-4 fill-white" />
               <span>▶ BẮT ĐẦU ĐĂNG ({selectedGroupCount} NHÓM)</span>
             </button>
+
+            {onOpenScriptModal && (
+              <button
+                type="button"
+                onClick={onOpenScriptModal}
+                className="px-4 py-3 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer border border-white/20"
+                title="Tải file .BAT để máy tính tự động mở Chrome và đăng bài không cần chạm tay"
+              >
+                <Terminal className="w-4 h-4 text-amber-300" />
+                <span>🤖 Tải File .BAT (PC)</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Operational Status Bar */}
+        <div className="mt-4 pt-3.5 border-t border-white/15 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+          <div className="bg-white/10 backdrop-blur-xs rounded-xl p-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-blue-200" />
+              <div>
+                <div className="text-[10px] text-blue-200 uppercase font-bold">Nick Nguồn Đăng Bài:</div>
+                <div className="font-bold text-white flex items-center gap-1.5">
+                  <span>{activeProfile?.name || "Nick Chính"}</span>
+                  {activeProfile?.tokenStatus === "valid" ? (
+                    <span className="text-[9px] bg-emerald-500/30 text-emerald-200 px-1.5 py-0.2 rounded font-bold border border-emerald-400/40">
+                      ✓ Token Sẵn Sàng
+                    </span>
+                  ) : (
+                    <span className="text-[9px] bg-white/20 text-white/90 px-1.5 py-0.2 rounded font-medium">
+                      Web/Playwright
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            {onOpenProfileModal && (
+              <button
+                type="button"
+                onClick={onOpenProfileModal}
+                className="text-[11px] underline text-blue-200 hover:text-white font-bold cursor-pointer"
+              >
+                Đổi Nick
+              </button>
+            )}
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-xs rounded-xl p-2.5 flex items-center gap-2">
+            <Users className="w-4 h-4 text-blue-200" />
+            <div>
+              <div className="text-[10px] text-blue-200 uppercase font-bold">Nhóm Mục Tiêu:</div>
+              <div className="font-bold text-white">
+                {selectedGroupCount} nhóm đã chọn{" "}
+                <span className="text-[11px] font-normal text-blue-200">
+                  ({publicGroupCount} Công Khai, {safeGroupCount} an toàn)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-xs rounded-xl p-2.5 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-blue-200" />
+            <div>
+              <div className="text-[10px] text-blue-200 uppercase font-bold">Thời Gian Ước Tính:</div>
+              <div className="font-bold text-white">
+                ~{totalMinutes} phút{" "}
+                <span className="text-[11px] font-normal text-blue-200">
+                  (Giãn cách {config.minDelaySeconds}–{config.maxDelaySeconds}s)
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 

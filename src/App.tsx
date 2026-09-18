@@ -12,6 +12,7 @@ import { MobileBackgroundModal } from "./components/MobileBackgroundModal";
 import { ProfileManagerModal } from "./components/ProfileManagerModal";
 import { PostReportModal } from "./components/PostReportModal";
 import { PostVisibilityDiagnosticModal } from "./components/PostVisibilityDiagnosticModal";
+import { QuickTestModal } from "./components/QuickTestModal";
 import {
   FacebookGroup,
   ScheduleConfig,
@@ -148,7 +149,9 @@ export default function App() {
   const [isBatterySaverOpen, setIsBatterySaverOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [currentActiveGroup, setCurrentActiveGroup] = useState<FacebookGroup | null>(null);
   const [isDiagnosticModalOpen, setIsDiagnosticModalOpen] = useState(false);
+  const [isQuickTestModalOpen, setIsQuickTestModalOpen] = useState(false);
 
   // Load images from IndexedDB on startup
   useEffect(() => {
@@ -277,39 +280,150 @@ export default function App() {
     }
 
     const queue = mode === "test" ? [activeGroups[0]] : activeGroups;
+    const firstGroup = queue[0];
+
+    // Check if target group is a demo/placeholder URL (which causes Facebook's "Bạn hiện không xem được nội dung này")
+    const isPlaceholder =
+      !firstGroup?.url ||
+      firstGroup.url.includes("startup.kinhdoanh.vn") ||
+      firstGroup.url.includes("noithat.giadung.hanoi") ||
+      firstGroup.url.includes("marketing.online.vietnam") ||
+      firstGroup.url.includes("bds.duan.vietnam") ||
+      firstGroup.url.includes("sme.doanhnghiep.vn") ||
+      firstGroup.url.includes("kythuat.codien.me") ||
+      firstGroup.url.includes("example.com");
+
+    if (mode === "test" && isPlaceholder) {
+      setCurrentActiveGroup(firstGroup);
+      setIsQuickTestModalOpen(true);
+      return;
+    }
+
     executionQueueRef.current = queue;
     currentIndexRef.current = 0;
     isPausedRef.current = false;
+    setCurrentActiveGroup(firstGroup);
 
     setActiveTab("monitor");
+
+    // Generate first variation immediately
+    const firstVariant = resolveSpintax(spintaxContent || rawContent);
+
+    // 1. Copy to clipboard immediately inside user gesture
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(firstVariant).catch(() => {});
+    }
+
+    // 2. Automatically open target Facebook group in new tab (allowed in user gesture)
+    if (firstGroup?.url) {
+      try {
+        window.open(firstGroup.url, "_blank");
+      } catch (e) {
+        console.warn("Popup blocked:", e);
+      }
+    }
+
     addLog(
       "info",
       `🚀 Khởi động ca đăng bài ${mode === "test" ? "THỬ NGHIỆM (1 nhóm)" : `(${queue.length} nhóm mục tiêu)`}.`
+    );
+    addLog(
+      "success",
+      `🌐 ĐÃ TỰ ĐỘNG MỞ TAB NHÓM FACEBOOK: ${firstGroup.name}`,
+      firstGroup.name
+    );
+    addLog(
+      "info",
+      `📋 ĐÃ COPY NỘI DUNG VÀO BỘ NHỚ TẠM! Hãy chuyển sang tab Facebook vừa mở, ấn Ctrl+V (Dán) và bấm Đăng!`,
+      firstGroup.name
     );
 
     // Enable mobile persistence & screen wake lock
     enableWakeLock();
     enableMobileBackgroundKeepAlive();
-    addLog(
-      "info",
-      "🔋 Chế độ Chạy Ẩn Điện Thoại & WakeLock đã kích hoạt. Bạn có thể bấm 'Màn Hình Đen Tiết Kiệm Pin' để máy chạy mát và không tốn pin."
-    );
 
     setEngineState({
       status: "running",
       currentGroupIndex: 1,
       totalGroups: queue.length,
-      currentGroupName: queue[0].name,
+      currentGroupName: firstGroup.name,
       countdownSeconds: 0,
       progressPercent: 0,
-      currentVariation: "",
+      currentVariation: firstVariant,
     });
 
-    executeGroupStep(queue, 0);
+    executeGroupStep(queue, 0, firstVariant, true);
+  };
+
+  // Quick test with user's real Facebook group URL
+  const handleConfirmQuickTest = (targetGroupUrl: string, groupName?: string) => {
+    setIsQuickTestModalOpen(false);
+
+    const updatedGroups = groups.map((g, idx) => {
+      if (idx === 0 || (currentActiveGroup && g.id === currentActiveGroup.id)) {
+        return {
+          ...g,
+          url: targetGroupUrl,
+          name: groupName || (g.name.includes("Ví dụ") ? "Nhóm Facebook Thật" : g.name),
+          isActive: true,
+        };
+      }
+      return g;
+    });
+
+    setGroups(updatedGroups);
+    try {
+      localStorage.setItem("fb_groups", JSON.stringify(updatedGroups));
+    } catch (e) {}
+
+    const targetGroup = updatedGroups.find((g) => g.url === targetGroupUrl) || updatedGroups[0];
+    const queue = [targetGroup];
+    executionQueueRef.current = queue;
+    currentIndexRef.current = 0;
+    isPausedRef.current = false;
+    setCurrentActiveGroup(targetGroup);
+    setActiveTab("monitor");
+
+    const firstVariant = resolveSpintax(spintaxContent || rawContent);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(firstVariant).catch(() => {});
+    }
+
+    if (targetGroup?.url) {
+      try {
+        window.open(targetGroup.url, "_blank");
+      } catch (e) {
+        console.warn("Popup blocked:", e);
+      }
+    }
+
+    addLog("info", `🚀 Khởi động ca đăng bài THỬ NGHIỆM vào nhóm Facebook thật: ${targetGroup.name}`);
+    addLog("success", `🌐 ĐÃ TỰ ĐỘNG MỞ TAB NHÓM FACEBOOK THẬT: ${targetGroup.name}`, targetGroup.name);
+    addLog("info", `📋 ĐÃ COPY NỘI DUNG VÀO BỘ NHỚ TẠM! Hãy chuyển sang tab Facebook vừa mở, ấn Ctrl+V và bấm Đăng!`, targetGroup.name);
+
+    enableWakeLock();
+    enableMobileBackgroundKeepAlive();
+
+    setEngineState({
+      status: "running",
+      currentGroupIndex: 1,
+      totalGroups: 1,
+      currentGroupName: targetGroup.name,
+      countdownSeconds: 0,
+      progressPercent: 0,
+      currentVariation: firstVariant,
+    });
+
+    executeGroupStep(queue, 0, firstVariant, true);
   };
 
   // Execute single group step
-  const executeGroupStep = (queue: FacebookGroup[], index: number) => {
+  const executeGroupStep = (
+    queue: FacebookGroup[],
+    index: number,
+    presetVariant?: string,
+    alreadyOpenedFirstTab?: boolean
+  ) => {
     if (index >= queue.length) {
       // Completed all
       setEngineState((prev) => ({
@@ -326,141 +440,153 @@ export default function App() {
 
     const group = queue[index];
     currentIndexRef.current = index;
+    setCurrentActiveGroup(group);
+
+    const variant = presetVariant || resolveSpintax(spintaxContent || rawContent);
 
     setEngineState((prev) => ({
       ...prev,
       status: "running",
       currentGroupIndex: index + 1,
       currentGroupName: group.name,
+      currentVariation: variant,
       progressPercent: (index / queue.length) * 100,
     }));
 
-    addLog("info", `Đang mở trình duyệt kết nối nhóm: ${group.name}...`, group.name);
-
-    // Post to group via API
-    setTimeout(async () => {
-      if (isPausedRef.current) return;
-
-      const variant = resolveSpintax(spintaxContent || rawContent);
-      setEngineState((prev) => ({ ...prev, currentVariation: variant }));
-
-      addLog(
-        "info",
-        `Đã xuất biến thể Spintax độc bản (${variant.length} ký tự). Đang kết nối máy chủ Facebook để gửi bài...`,
-        group.name
-      );
-
-      if (images.length > 0) {
-        addLog(
-          "info",
-          `Đã đính kèm ${images.length} file hình ảnh vào gói tin đăng...`,
-          group.name
-        );
-      }
-
-      const targetProfile =
-        profiles.find((p) => p.id === group.assignedProfileId) ||
-        profiles.find((p) => p.id === activeProfileId) ||
-        profiles[0];
-
-      let postPermalink = `${group.url.replace(/\/$/, "")}/posts/${Math.floor(1000000000 + Math.random() * 9000000000)}`;
-      let postStatus: PostResultRecord["status"] = "success";
-      let statusNote = "Đã đăng bài thành công, duyệt tự động";
-
+    // If not first tab (already opened on button click), open it now if user allowed
+    if (!alreadyOpenedFirstTab && index > 0) {
       try {
-        const response = await fetch("/api/facebook/post-group", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            groupId: group.id,
-            message: variant,
-            imageUrls: images,
-            tokenOrCookie: targetProfile?.tokenOrCookie,
-            profileName: targetProfile?.name,
-          }),
-        });
+        window.open(group.url, "_blank");
+        addLog("info", `🌐 Đã mở tab nhóm tiếp theo: ${group.name}`, group.name);
+      } catch (e) {
+        addLog("warning", `⚠️ Trình duyệt chặn mở popup tự động. Vui lòng bấm 'MỞ NHÓM & DÁN BÀI' ở bảng điều khiển.`, group.name);
+      }
+    }
 
-        const data = await response.json();
-        if (data.success && data.postUrl) {
-          postPermalink = data.postUrl;
-        } else if (!data.success) {
-          addLog("warning", `⚠️ Phản hồi từ Facebook: ${data.error || "Cần duyệt"}`, group.name);
-          postStatus = "pending_approval";
-          statusNote = data.error || "Bài viết đã gửi, đang chờ quản trị viên duyệt";
+    // Automatically copy spintax variant to clipboard
+    try {
+      navigator.clipboard.writeText(variant);
+    } catch (e) {}
+
+    addLog(
+      "info",
+      `Đã xuất biến thể Spintax độc bản (${variant.length} ký tự). Đã copy sẵn vào bộ nhớ tạm.`,
+      group.name
+    );
+
+    const targetProfile =
+      profiles.find((p) => p.id === group.assignedProfileId) ||
+      profiles.find((p) => p.id === activeProfileId) ||
+      profiles[0];
+
+    let postPermalink = group.url;
+    let postStatus: PostResultRecord["status"] = "ready";
+    let statusNote = "Tab nhóm đã mở & bài đã copy. Hãy ấn Ctrl+V và bấm Đăng trên Facebook.";
+
+    // If target profile has Token
+    if (targetProfile?.tokenOrCookie && targetProfile.tokenOrCookie.trim().length > 15) {
+      setTimeout(async () => {
+        if (isPausedRef.current) return;
+        try {
+          const response = await fetch("/api/facebook/post-group", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              groupId: group.id,
+              groupUrl: group.url,
+              groupName: group.name,
+              message: variant,
+              imageUrls: images,
+              tokenOrCookie: targetProfile?.tokenOrCookie,
+              profileName: targetProfile?.name,
+            }),
+          });
+
+          const data = await response.json();
+          if (data.success && data.mode === "token" && data.postUrl) {
+            postPermalink = data.postUrl;
+            postStatus = "success";
+            statusNote = "Đã đăng bài thành công qua Token Graph API";
+            addLog("success", `✅ ĐÃ ĐĂNG THÀNH CÔNG: ${group.name}`, group.name);
+          } else if (!data.success) {
+            addLog("warning", `⚠️ Facebook API: ${data.error || "Không thể gửi bài"}`, group.name);
+            postStatus = "error";
+            statusNote = data.error || "Facebook từ chối đăng bài";
+          }
+        } catch (err: any) {
+          console.warn("Lỗi gọi API đăng bài:", err);
         }
-      } catch (err: any) {
-        console.warn("Lỗi gọi API đăng bài:", err);
-      }
 
-      if (isPausedRef.current) return;
+        recordStepResult(group, targetProfile, variant, postPermalink, postStatus, statusNote, queue, index);
+      }, 1500);
+    } else {
+      // In Web mode, keep the active group awaiting user's paste & post confirmation
+      recordStepResult(group, targetProfile, variant, postPermalink, postStatus, statusNote, queue, index, true);
+    }
+  };
 
-      if (postStatus === "success") {
-        addLog(
-          "success",
-          `✅ ĐÃ ĐĂNG THÀNH CÔNG: ${group.name} - Bài viết đã được hệ thống gửi lên nhóm.`,
-          group.name
-        );
-      } else {
-        addLog(
-          "warning",
-          `⏳ ĐÃ GỬI BÀI: ${group.name} - ${statusNote}`,
-          group.name
-        );
-      }
+  // Helper to record step result and manage progression
+  const recordStepResult = (
+    group: FacebookGroup,
+    targetProfile: any,
+    variant: string,
+    postPermalink: string,
+    postStatus: PostResultRecord["status"],
+    statusNote: string,
+    queue: FacebookGroup[],
+    index: number,
+    waitForUserConfirm: boolean = false
+  ) => {
+    const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-      // Update group status with tracking history & record post result
-      const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const newRecord: PostResultRecord = {
+      id: `post-${Date.now()}-${group.id}`,
+      timestamp: `${nowTime} Hôm nay`,
+      groupId: group.id,
+      groupName: group.name,
+      groupUrl: group.url,
+      profileId: targetProfile?.id || "prof-1",
+      profileName: targetProfile?.name || "Nick Chính",
+      contentVariant: variant.substring(0, 140) + (variant.length > 140 ? "..." : ""),
+      postUrl: postPermalink,
+      groupPrivacy: group.privacy || "public",
+      status: postStatus,
+      note: statusNote,
+    };
 
-      const newRecord: PostResultRecord = {
-        id: `post-${Date.now()}-${group.id}`,
-        timestamp: `${nowTime} Hôm nay`,
-        groupId: group.id,
-        groupName: group.name,
-        groupUrl: group.url,
-        profileId: targetProfile?.id || "prof-1",
-        profileName: targetProfile?.name || "Nick Chính",
-        contentVariant: variant.substring(0, 140) + (variant.length > 140 ? "..." : ""),
-        postUrl: postPermalink,
-        groupPrivacy: group.privacy || "public",
-        status: postStatus,
-        note: statusNote,
-      };
+    setPostRecords((prev) => [newRecord, ...prev]);
 
-      setPostRecords((prev) => [newRecord, ...prev]);
+    setGroups((prev) =>
+      prev.map((g) =>
+        g.id === group.id
+          ? {
+              ...g,
+              lastStatus: postStatus,
+              isVerifiedSafe: postStatus === "success" ? true : g.isVerifiedSafe,
+              successCount: (g.successCount || 0) + (postStatus === "success" ? 1 : 0),
+              lastPostedAt: `${nowTime} Hôm nay`,
+              postNote: statusNote,
+              lastPostUrl: postPermalink,
+            }
+          : g
+      )
+    );
 
-      setGroups((prev) =>
-        prev.map((g) =>
-          g.id === group.id
-            ? {
-                ...g,
-                lastStatus: postStatus,
-                isVerifiedSafe: postStatus === "success" ? true : g.isVerifiedSafe,
-                successCount: (g.successCount || 0) + (postStatus === "success" ? 1 : 0),
-                lastPostedAt: `${nowTime} Hôm nay`,
-                postNote: statusNote,
-                lastPostUrl: postPermalink,
-              }
-            : g
-        )
+    // If we have more groups and not in single-test waiting mode
+    if (index < queue.length - 1 && !waitForUserConfirm) {
+      const delaySec = Math.floor(Math.random() * 8) + 12; // 12-20s cooldown
+      startCooldown(delaySec, queue, index + 1);
+    } else if (index >= queue.length - 1 && !waitForUserConfirm) {
+      setEngineState((prev) => ({
+        ...prev,
+        status: "completed",
+        progressPercent: 100,
+      }));
+      addLog(
+        "success",
+        `🎉 HOÀN THÀNH TOÀN BỘ CA ĐĂNG BÀI! Đã xử lý xong ${queue.length} nhóm.`
       );
-
-      // If there are more groups, enter cooldown
-      if (index < queue.length - 1) {
-        const delaySec = Math.floor(Math.random() * 8) + 12; // 12-20s cooldown
-        startCooldown(delaySec, queue, index + 1);
-      } else {
-        // Finish
-        setEngineState((prev) => ({
-          ...prev,
-          status: "completed",
-          progressPercent: 100,
-        }));
-        addLog(
-          "success",
-          `🎉 HOÀN THÀNH TOÀN BỘ CA ĐĂNG BÀI! Đã xử lý xong ${queue.length} nhóm.`
-        );
-      }
-    }, 1500);
+    }
   };
 
   // Cooldown countdown timer
@@ -496,12 +622,54 @@ export default function App() {
     }, 1000);
   };
 
-  // Fast forward cooldown (skip wait for quick testing)
+  // Fast forward cooldown or advance to next group
   const handleFastForwardCooldown = () => {
     if (cooldownTimerRef.current) {
       clearInterval(cooldownTimerRef.current);
-      addLog("info", "⏩ Đã bỏ qua thời gian chờ (Fast-Forward). Đang mở nhóm tiếp theo...");
-      executeGroupStep(executionQueueRef.current, currentIndexRef.current + 1);
+      cooldownTimerRef.current = null;
+    }
+
+    const queue = executionQueueRef.current;
+    if (!queue || queue.length === 0) return;
+
+    const currentGrp = queue[currentIndexRef.current];
+    if (currentGrp) {
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === currentGrp.id
+            ? {
+                ...g,
+                lastStatus: "success",
+                successCount: (g.successCount || 0) + 1,
+                lastPostedAt:
+                  new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
+                  " Hôm nay",
+                postNote: "Đã xác nhận đăng bài thành công",
+              }
+            : g
+        )
+      );
+      addLog(
+        "success",
+        `✓ Đã xác nhận đăng bài thành công vào nhóm: ${currentGrp.name}`,
+        currentGrp.name
+      );
+    }
+
+    const nextIndex = currentIndexRef.current + 1;
+    if (nextIndex < queue.length) {
+      addLog("info", `⏩ Đang chuyển sang nhóm tiếp theo [${nextIndex + 1}/${queue.length}]...`);
+      executeGroupStep(queue, nextIndex);
+    } else {
+      setEngineState((prev) => ({
+        ...prev,
+        status: "completed",
+        progressPercent: 100,
+      }));
+      addLog(
+        "success",
+        `🎉 HOÀN THÀNH TOÀN BỘ CA ĐĂNG BÀI! Đã xử lý xong toàn bộ ${queue.length} nhóm.`
+      );
     }
   };
 
@@ -542,7 +710,6 @@ export default function App() {
   };
 
   const selectedGroupCount = groups.filter((g) => g.isActive).length;
-  const currentActiveGroup = executionQueueRef.current[currentIndexRef.current];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
@@ -568,6 +735,9 @@ export default function App() {
         }
         reportCount={postRecords.length}
         onOpenDiagnosticModal={() => setIsDiagnosticModalOpen(true)}
+        profiles={profiles}
+        activeProfileId={activeProfileId}
+        setActiveProfileId={setActiveProfileId}
       />
 
       {/* Main Container - Optimized for mobile density */}
@@ -607,6 +777,12 @@ export default function App() {
             }
             selectedGroupCount={selectedGroupCount}
             onOpenScriptModal={() => setIsScriptModalOpen(true)}
+            profiles={profiles}
+            activeProfileId={activeProfileId}
+            setActiveProfileId={setActiveProfileId}
+            onOpenProfileModal={() => setIsProfileModalOpen(true)}
+            groups={groups}
+            onOpenQuickTestModal={() => setIsQuickTestModalOpen(true)}
           />
         )}
 
@@ -623,6 +799,8 @@ export default function App() {
             onGoToGroups={() => setActiveTab("groups")}
             groups={groups}
             onOpenProfiles={() => setIsProfileModalOpen(true)}
+            onOpenScriptModal={() => setIsScriptModalOpen(true)}
+            onOpenQuickTestModal={() => setIsQuickTestModalOpen(true)}
           />
         )}
       </main>
@@ -722,6 +900,14 @@ export default function App() {
       <PostVisibilityDiagnosticModal
         isOpen={isDiagnosticModalOpen}
         onClose={() => setIsDiagnosticModalOpen(false)}
+      />
+
+      <QuickTestModal
+        isOpen={isQuickTestModalOpen}
+        onClose={() => setIsQuickTestModalOpen(false)}
+        onConfirm={handleConfirmQuickTest}
+        defaultUrl={currentActiveGroup?.url || groups.find((g) => g.isActive)?.url}
+        groupName={currentActiveGroup?.name || groups.find((g) => g.isActive)?.name}
       />
 
       {/* OLED Battery Saver Overlay */}
