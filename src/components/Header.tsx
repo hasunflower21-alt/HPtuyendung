@@ -12,6 +12,7 @@ import {
   FileCode,
   User,
   FileSpreadsheet,
+  EyeOff,
 } from "lucide-react";
 
 interface HeaderProps {
@@ -20,6 +21,7 @@ interface HeaderProps {
   onOpenMobileModal: () => void;
   onOpenProfileModal: () => void;
   onOpenReportModal: () => void;
+  onOpenDiagnosticModal?: () => void;
   onToggleBatterySaver: () => void;
   isBatterySaverOpen?: boolean;
   activeTab: string;
@@ -37,6 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenMobileModal,
   onOpenProfileModal,
   onOpenReportModal,
+  onOpenDiagnosticModal,
   onToggleBatterySaver,
   activeTab,
   setActiveTab,
@@ -208,6 +211,17 @@ export const Header: React.FC<HeaderProps> = ({
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span className="hidden md:inline">Bảo Vệ Nick</span>
             </button>
+
+            {onOpenDiagnosticModal && (
+              <button
+                onClick={onOpenDiagnosticModal}
+                className="px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-[10px] sm:text-xs font-bold flex items-center gap-1 transition-colors whitespace-nowrap shadow-2xs"
+                title="Hướng dẫn sửa lỗi: Không xem được bài đăng trên Facebook"
+              >
+                <EyeOff className="w-3.5 h-3.5 text-amber-600" />
+                <span>Chẩn Đoán Lỗi Bài</span>
+              </button>
+            )}
           </div>
         </div>
 

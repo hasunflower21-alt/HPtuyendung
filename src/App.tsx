@@ -10,6 +10,7 @@ import { BatterySaverOverlay } from "./components/BatterySaverOverlay";
 import { MobileBackgroundModal } from "./components/MobileBackgroundModal";
 import { ProfileManagerModal } from "./components/ProfileManagerModal";
 import { PostReportModal } from "./components/PostReportModal";
+import { PostVisibilityDiagnosticModal } from "./components/PostVisibilityDiagnosticModal";
 import {
   FacebookGroup,
   ScheduleConfig,
@@ -128,6 +129,7 @@ export default function App() {
   const [isBatterySaverOpen, setIsBatterySaverOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isDiagnosticModalOpen, setIsDiagnosticModalOpen] = useState(false);
 
   // Engine state
   const [engineState, setEngineState] = useState<EngineState>({
@@ -468,6 +470,7 @@ export default function App() {
           profiles.find((p) => p.id === activeProfileId)?.name || "Nick Chính"
         }
         reportCount={postRecords.length}
+        onOpenDiagnosticModal={() => setIsDiagnosticModalOpen(true)}
       />
 
       {/* Main Container - Optimized for mobile density */}
@@ -493,6 +496,7 @@ export default function App() {
             activeProfileId={activeProfileId}
             onOpenProfileModal={() => setIsProfileModalOpen(true)}
             onOpenReportModal={() => setIsReportModalOpen(true)}
+            onOpenDiagnosticModal={() => setIsDiagnosticModalOpen(true)}
           />
         )}
 
@@ -596,6 +600,12 @@ export default function App() {
         records={postRecords}
         setRecords={setPostRecords}
         profiles={profiles}
+        onOpenDiagnosticModal={() => setIsDiagnosticModalOpen(true)}
+      />
+
+      <PostVisibilityDiagnosticModal
+        isOpen={isDiagnosticModalOpen}
+        onClose={() => setIsDiagnosticModalOpen(false)}
       />
 
       {/* OLED Battery Saver Overlay */}

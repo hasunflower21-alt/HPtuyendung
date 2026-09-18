@@ -15,6 +15,10 @@ import {
   Clock,
   User,
   Plus,
+  EyeOff,
+  Globe,
+  Lock,
+  Sparkles,
 } from "lucide-react";
 import { PostResultRecord, FacebookProfile } from "../types";
 
@@ -24,6 +28,7 @@ interface PostReportModalProps {
   records: PostResultRecord[];
   setRecords: React.Dispatch<React.SetStateAction<PostResultRecord[]>>;
   profiles: FacebookProfile[];
+  onOpenDiagnosticModal?: () => void;
 }
 
 export const PostReportModal: React.FC<PostReportModalProps> = ({
@@ -32,6 +37,7 @@ export const PostReportModal: React.FC<PostReportModalProps> = ({
   records,
   setRecords,
   profiles,
+  onOpenDiagnosticModal,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterProfile, setFilterProfile] = useState<string>("all");
@@ -201,6 +207,28 @@ export const PostReportModal: React.FC<PostReportModalProps> = ({
           >
             ✕ Đóng
           </button>
+        </div>
+
+        {/* Diagnostic Alert Banner for 'Không xem được bài' */}
+        <div className="bg-gradient-to-r from-amber-50 via-red-50/50 to-amber-50 border-b border-amber-200/80 px-3.5 py-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs text-amber-950">
+            <EyeOff className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <span>
+              <strong>Bị báo "Bạn hiện không xem được nội dung này"?</strong> Thường do mở sai Nick FB, hoặc bài đăng trong Nhóm Kín/Chờ duyệt.
+            </span>
+          </div>
+          {onOpenDiagnosticModal && (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenDiagnosticModal();
+              }}
+              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-bold shadow-2xs flex items-center gap-1 whitespace-nowrap transition-colors"
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>Chẩn Đoán & Sửa Lỗi Ngay</span>
+            </button>
+          )}
         </div>
 
         {/* Toolbar: Search, Filters & Export Buttons */}

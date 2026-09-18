@@ -19,6 +19,7 @@ export interface PostResultRecord {
   profileName: string;
   contentVariant: string; // Nội dung Spintax đã xuất
   postUrl?: string; // Link bài viết cụ thể hoặc link nhóm
+  groupPrivacy?: "public" | "private"; // Nhóm công khai (ai cũng xem được) hay nhóm kín
   status: "success" | "pending_approval" | "blocked" | "error";
   note?: string;
 }
@@ -28,6 +29,7 @@ export interface FacebookGroup {
   name: string;
   url: string;
   category: "discussion" | "marketplace";
+  privacy?: "public" | "private"; // Nhóm Công Khai (Public) hay Nhóm Kín/Riêng Tư (Private)
   memberCount?: string;
   isActive: boolean;
   shift: "all" | "morning" | "evening";

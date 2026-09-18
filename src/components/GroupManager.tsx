@@ -23,6 +23,9 @@ import {
   Check,
   ChevronDown,
   User,
+  Globe,
+  Lock,
+  EyeOff,
 } from "lucide-react";
 import { FacebookGroup, FacebookProfile } from "../types";
 import { INITIAL_GROUPS } from "../utils/spintax";
@@ -35,6 +38,7 @@ interface GroupManagerProps {
   activeProfileId?: string;
   onOpenProfileModal?: () => void;
   onOpenReportModal?: () => void;
+  onOpenDiagnosticModal?: () => void;
 }
 
 export const GroupManager: React.FC<GroupManagerProps> = ({
@@ -45,6 +49,7 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
   activeProfileId,
   onOpenProfileModal,
   onOpenReportModal,
+  onOpenDiagnosticModal,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterShift, setFilterShift] = useState<"all" | "morning" | "evening">("all");
@@ -124,6 +129,24 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
     setFilterStatus("safe");
     showToast(
       `🎯 ĐÃ CHỌN ${safeCount} NHÓM THÀNH CÔNG KHÔNG BỊ CHẶN! Đã tự động bỏ qua các nhóm bị chặn hoặc chờ duyệt.`
+    );
+  };
+
+  // Select only Public Groups to ensure 100% visible posts
+  const handleSelectOnlyPublicGroups = () => {
+    let count = 0;
+    setGroups((prev) =>
+      prev.map((g) => {
+        const isPublic = g.privacy !== "private";
+        if (isPublic) count++;
+        return {
+          ...g,
+          isActive: isPublic,
+        };
+      })
+    );
+    showToast(
+      `🌐 ĐÃ CHỌN ${count} NHÓM CÔNG KHAI (PUBLIC)! Đảm bảo 100% ai có link cũng xem được bài.`
     );
   };
 
@@ -504,15 +527,37 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
             </div>
           </div>
 
-          {/* Quick Action Button: FOCUS ON SAFE GROUPS */}
-          <button
-            onClick={handleFocusSafeGroups}
-            className="w-full sm:w-auto px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
-            title="Tự động chỉ tích chọn các nhóm đã kiểm chứng an toàn không bị chặn"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-            <span>🎯 Tập Trung Đăng {safeCount} Nhóm Thành Công</span>
-          </button>
+          {/* Quick Action Buttons */}
+          <div className="flex items-center gap-1.5 w-full sm:w-auto flex-wrap">
+            <button
+              onClick={handleSelectOnlyPublicGroups}
+              className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
+              title="Chỉ chọn nhóm Công Khai để đảm bảo bất kỳ ai có link cũng xem được bài"
+            >
+              <Globe className="w-3.5 h-3.5 text-yellow-300" />
+              <span>🌐 Chọn Nhóm Công Khai</span>
+            </button>
+
+            <button
+              onClick={handleFocusSafeGroups}
+              className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
+              title="Tự động chỉ tích chọn các nhóm đã kiểm chứng an toàn không bị chặn"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+              <span>🎯 Đăng {safeCount} Nhóm An Toàn</span>
+            </button>
+
+            {onOpenDiagnosticModal && (
+              <button
+                onClick={onOpenDiagnosticModal}
+                className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-all whitespace-nowrap"
+                title="Hướng dẫn xử lý lỗi Bạn hiện không xem được nội dung này"
+              >
+                <EyeOff className="w-3.5 h-3.5 text-amber-600" />
+                <span>Không Xem Được Bài?</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 4 Metrics cards */}
@@ -874,6 +919,17 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
                           <h4 className="text-xs font-bold text-slate-900 leading-tight">
                             {group.name}
                           </h4>
+                          {group.privacy === "private" ? (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              <Lock className="w-2.5 h-2.5" />
+                              Nhóm Kín
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <Globe className="w-2.5 h-2.5" />
+                              Công Khai
+                            </span>
+                          )}
                           {group.memberCount && (
                             <span className="text-[10px] text-slate-500 font-normal">
                               ({group.memberCount})
@@ -1173,6 +1229,17 @@ export const GroupManager: React.FC<GroupManagerProps> = ({
                           <span className="truncate max-w-xs md:max-w-md" title={group.name}>
                             {group.name}
                           </span>
+                          {group.privacy === "private" ? (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              <Lock className="w-2.5 h-2.5" />
+                              Nhóm Kín
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <Globe className="w-2.5 h-2.5" />
+                              Công Khai
+                            </span>
+                          )}
                           {group.memberCount && (
                             <span className="text-[10px] text-slate-500 font-normal whitespace-nowrap flex-shrink-0">
                               ({group.memberCount})
